@@ -365,6 +365,14 @@ En las primeras pruebas reales, los `yaw` calculados hacia el centro del mapa ha
 
 El `MoveBaseGoal` sigue llevando quaternion porque ROS lo requiere, pero `move_base` debe considerar valido llegar al `x/y` aunque el robot mantenga la orientacion natural de llegada.
 
+## Guia rapida de ejecucion en robot real
+
+Los comandos por terminal para probar despues de los bringups estan separados en:
+
+```text
+docs/real-robot-runbook.md
+```
+
 ## Comandos base del robot
 
 ### Nota critica: tiempo real vs simulacion

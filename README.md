@@ -255,6 +255,9 @@ Accion principal:
 catkin_ws/src/event_guide_robot/
   CMakeLists.txt
   package.xml
+  maps/
+    map.yaml
+    map.pgm
   launch/
     guide_system.launch
     navigation_with_guide.launch
@@ -405,8 +408,14 @@ roslaunch turtlebot3_bringup turtlebot3_remote.launch
 Navegacion + sistema guia recomendado:
 
 ```bash
+roslaunch event_guide_robot navigation_with_guide.launch
+```
+
+El launch usa por defecto el mapa empaquetado en `$(find event_guide_robot)/maps/map.yaml`. Si quieres probar otro mapa, puedes sobrescribirlo con:
+
+```bash
 roslaunch event_guide_robot navigation_with_guide.launch \
-  map_file:=$(rospack find event_guide_robot)/maps/map.yaml
+  map_file:=/ruta/a/otro/map.yaml
 ```
 
 Este launch incluye `turtlebot3_navigation` y nuestros nodos guia. Ademas relaja la orientacion final del goal con:

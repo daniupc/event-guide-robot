@@ -41,3 +41,14 @@ def test_navigation_launch_relaxes_final_yaw_by_default():
     assert args["yaw_goal_tolerance"] == "6.283185307"
     assert params["/move_base/DWAPlannerROS/yaw_goal_tolerance"] == "$(arg yaw_goal_tolerance)"
     assert params["/move_base/TrajectoryPlannerROS/yaw_goal_tolerance"] == "$(arg yaw_goal_tolerance)"
+
+
+def test_navigation_launch_uses_packaged_map_by_default():
+    launch_file = PACKAGE_ROOT / "launch" / "navigation_with_guide.launch"
+
+    root = ET.parse(launch_file).getroot()
+    args = {arg.attrib["name"]: arg.attrib.get("default") for arg in root.findall("arg")}
+
+    assert args["map_file"] == "$(find event_guide_robot)/maps/map.yaml"
+    assert (PACKAGE_ROOT / "maps" / "map.yaml").is_file()
+    assert (PACKAGE_ROOT / "maps" / "map.pgm").is_file()

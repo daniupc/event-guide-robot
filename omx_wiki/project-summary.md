@@ -32,8 +32,9 @@ Implemented nodes:
 - `local_search_manager_node.py`: waits for `NAVIGATION_SUCCEEDED`, then rotates on `/cmd_vel`, listens to `/vision/detections`, and stops safely on success/timeout.
 - `vision_detector_node.py`: ArUco-based JSON detections when `cv2.aruco` is available; ArUco is the fixed MVP vision method.
 
-Current semantic map:
+Current packaged map and semantic map:
 
+- `catkin_ws/src/event_guide_robot/maps/map.yaml` is the default map for `navigation_with_guide.launch`, with `image: map.pgm` relative to the same folder.
 - 4 measured zones from `puntos.txt`.
 - 2 MWC-style stands per zone.
 - numeric `marker_id` values that are the real ArUco IDs to print for each stand.
@@ -81,7 +82,7 @@ vision_detector_node <--- /camera/image
 ## Runtime notes
 
 - For robot-real testing, set `rosparam set /use_sim_time false` before launching navigation. If it remains `true` from a Gazebo session, `/map` and `/map_metadata` can appear to hang and RViz may not display the map correctly even though `map_server` loaded the image.
-- Use `event_guide_robot/navigation_with_guide.launch` when possible: it sets a full-turn `yaw_goal_tolerance` so semantic goals do not force final rotation toward the map center in tight spaces.
+- Use `event_guide_robot/navigation_with_guide.launch` when possible: it now defaults to the packaged project map and sets a full-turn `yaw_goal_tolerance` so semantic goals do not force final rotation toward the map center in tight spaces.
 - Gazebo simulation needs a world that matches the 2D map. Using `turtlebot3_world` with the project map causes `/scan` to describe Gazebo walls, not the project map.
 - Camera/ArUco validation has not yet been completed on the real robot.
 

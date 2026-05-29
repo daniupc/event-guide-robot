@@ -1,0 +1,149 @@
+# Semantic map for the Event Guide Robot demo.
+#
+# Coordinate source:
+# - Positions come from puntos.txt, captured in the ROS "map" frame.
+# - The centroid below is the average of the four measured points.
+# - yaw values are calculated so each zone faces that centroid. Replace them
+#   with RViz/AMCL-measured orientations if the demo layout needs another view.
+# - labels use ArUco/AprilTag-style numeric marker IDs as the primary visual
+#   signal. Print one marker per stand and place it next to the human-readable
+#   stand name. Colors can be added physically as a secondary debugging cue, but
+#   they are not the semantic identifier.
+
+metadata:
+  frame_id: map
+  map_file: ../../../../map.yaml
+  position_source: puntos.txt
+  yaw_source: inferred_towards_centroid
+  centroid:
+    x: 0.13666607066988945
+    y: 0.1921076737344265
+
+zones:
+  zona_arriba:
+    name: "Zona arriba"
+    aliases:
+      - "arriba"
+      - "zona arriba"
+      - "punto arriba"
+    nav_goal:
+      x: -0.529138445854187
+      y: -0.044567957520484924
+      yaw: 0.3415423349961051
+    search_waypoints:
+      - x: -0.529138445854187
+        y: -0.044567957520484924
+        yaw: 0.3415423349961051
+    labels:
+      qualcomm_ai_hub:
+        display_name: "Qualcomm AI Hub"
+        aliases:
+          - "qualcomm"
+          - "qualcomm ai"
+          - "qualcomm ai hub"
+          - "stand qualcomm"
+        marker_id: 11
+      samsung_galaxy_experience:
+        display_name: "Samsung Galaxy Experience"
+        aliases:
+          - "samsung"
+          - "galaxy"
+          - "samsung galaxy"
+          - "stand samsung"
+        marker_id: 12
+
+  zona_izquierda:
+    name: "Zona izquierda"
+    aliases:
+      - "izquierda"
+      - "zona izquierda"
+      - "punto izquierda"
+    nav_goal:
+      x: 0.2924858331680298
+      y: -0.3563343286514282
+      yaw: 1.8476153649092506
+    search_waypoints:
+      - x: 0.2924858331680298
+        y: -0.3563343286514282
+        yaw: 1.8476153649092506
+    labels:
+      telefonica_open_gateway:
+        display_name: "Telefonica Open Gateway"
+        aliases:
+          - "telefonica"
+          - "open gateway"
+          - "telefonica open gateway"
+          - "stand telefonica"
+        marker_id: 21
+      nokia_networks_lab:
+        display_name: "Nokia Networks Lab"
+        aliases:
+          - "nokia"
+          - "nokia networks"
+          - "networks lab"
+          - "stand nokia"
+        marker_id: 22
+
+  zona_abajo:
+    name: "Zona abajo"
+    aliases:
+      - "abajo"
+      - "zona abajo"
+      - "punto abajo"
+    nav_goal:
+      x: 0.853394627571106
+      y: 0.3277086019515991
+      yaw: -2.9546084890688524
+    search_waypoints:
+      - x: 0.853394627571106
+        y: 0.3277086019515991
+        yaw: -2.9546084890688524
+    labels:
+      ericsson_5g_arena:
+        display_name: "Ericsson 5G Arena"
+        aliases:
+          - "ericsson"
+          - "5g arena"
+          - "ericsson 5g"
+          - "stand ericsson"
+        marker_id: 31
+      gsma_innovation_city:
+        display_name: "GSMA Innovation City"
+        aliases:
+          - "gsma"
+          - "innovation city"
+          - "gsma innovation"
+          - "stand gsma"
+        marker_id: 32
+
+  zona_derecha:
+    name: "Zona derecha"
+    aliases:
+      - "derecha"
+      - "zona derecha"
+      - "punto derecha"
+    nav_goal:
+      x: -0.07007773220539093
+      y: 0.84162437915802
+      yaw: -1.2626325479600107
+    search_waypoints:
+      - x: -0.07007773220539093
+        y: 0.84162437915802
+        yaw: -1.2626325479600107
+    labels:
+      meta_xr_showcase:
+        display_name: "Meta XR Showcase"
+        aliases:
+          - "meta"
+          - "meta xr"
+          - "xr showcase"
+          - "stand meta"
+        marker_id: 41
+      nvidia_edge_ai:
+        display_name: "NVIDIA Edge AI"
+        aliases:
+          - "nvidia"
+          - "edge ai"
+          - "nvidia edge"
+          - "stand nvidia"
+        marker_id: 42

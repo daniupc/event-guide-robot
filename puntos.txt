@@ -1,0 +1,52 @@
+PUNTO ARRIBA
+
+header:
+  seq: 0
+  stamp:
+    secs: 1779879114
+    nsecs: 495060879
+  frame_id: "map"
+point:
+  x: -0.529138445854187
+  y: -0.044567957520484924
+  z: 0.0021162033081054688
+
+punto izquierda
+
+header:
+  seq: 2
+  stamp:
+    secs: 1779879226
+    nsecs: 912504767
+  frame_id: "map"
+point:
+  x: 0.2924858331680298
+  y: -0.3563343286514282
+  z: 0.006331443786621094
+
+punto abajo
+
+header:
+  seq: 3
+  stamp:
+    secs: 1779879251
+    nsecs: 681389242
+  frame_id: "map"
+point:
+  x: 0.853394627571106
+  y: 0.3277086019515991
+  z: 0.004253387451171875
+---
+
+derecha
+
+header:
+  seq: 4
+  stamp:
+    secs: 1779879275
+    nsecs: 145883297
+  frame_id: "map"
+point:
+  x: -0.07007773220539093
+  y: 0.84162437915802
+  z: 0.0064487457275390625

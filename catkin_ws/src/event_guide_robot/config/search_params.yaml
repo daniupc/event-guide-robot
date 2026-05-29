@@ -1,0 +1,5 @@
+rotation_speed_rad_s: 0.25
+scan_rotation_duration_sec: 8.0
+search_timeout_sec: 45.0
+detection_stale_sec: 1.0
+control_rate_hz: 10.0

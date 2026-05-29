@@ -1,0 +1,16 @@
+<launch>
+  <arg name="map_file" default="$(env HOME)/map.yaml" />
+  <arg name="semantic_map" default="$(find event_guide_robot)/config/semantic_map.yaml" />
+  <arg name="image_topic" default="/camera/image" />
+
+  <!-- Bring up TurtleBot3 navigation separately if a custom launch is needed.
+       This wrapper documents the expected integration point for the demo. -->
+  <include file="$(find turtlebot3_navigation)/launch/turtlebot3_navigation.launch">
+    <arg name="map_file" value="$(arg map_file)" />
+  </include>
+
+  <include file="$(find event_guide_robot)/launch/guide_system.launch">
+    <arg name="semantic_map" value="$(arg semantic_map)" />
+    <arg name="image_topic" value="$(arg image_topic)" />
+  </include>
+</launch>

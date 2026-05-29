@@ -7,6 +7,7 @@ consecutive frames. Pure helpers are intentionally ROS-free for local tests.
 """
 
 import json
+import math
 import time
 from pathlib import Path
 
@@ -19,6 +20,8 @@ except ImportError:  # pragma: no cover - only relevant on incomplete ROS images
 DEFAULT_REQUIRED_FRAMES = 3
 DEFAULT_IMAGE_TOPIC = "/raspicam_node/image"
 DEFAULT_DETECTIONS_TOPIC = "/vision/detections"
+DEFAULT_MARKER_SIZE_M = 0.16
+DEFAULT_HORIZONTAL_FOV_RAD = 1.085595
 
 
 def build_marker_index(semantic_map):
@@ -61,18 +64,69 @@ def stable_detection(candidate_id, history, required_frames):
     )
 
 
-def detection_to_json(marker_id, label_id, confidence, stable):
+def _point_xy(point):
+    """Return an OpenCV corner point as a simple (x, y) tuple."""
+    return float(point[0]), float(point[1])
+
+
+def _distance_between_points(first, second):
+    first_x, first_y = _point_xy(first)
+    second_x, second_y = _point_xy(second)
+    return math.hypot(second_x - first_x, second_y - first_y)
+
+
+def focal_length_from_width(image_width, horizontal_fov_rad):
+    """Estimate focal length in pixels from image width and horizontal FOV."""
+    return float(image_width) / (2.0 * math.tan(float(horizontal_fov_rad) / 2.0))
+
+
+def marker_geometry_from_corners(corners, image_width, marker_size_m, focal_length_px):
+    """Estimate marker horizontal offset and distance from its image corners.
+
+    The distance estimate is pinhole-camera based and assumes a printed marker
+    with a known physical side length. It is good enough for the final
+    short-range approach phase; navigation remains responsible for global
+    movement.
+    """
+    if len(corners) < 4:
+        return {}
+
+    points = [_point_xy(point) for point in corners[:4]]
+    center_x = sum(point[0] for point in points) / 4.0
+    half_width = float(image_width) / 2.0
+    center_offset_x = 0.0 if half_width == 0.0 else (center_x - half_width) / half_width
+
+    top_width = _distance_between_points(points[0], points[1])
+    bottom_width = _distance_between_points(points[3], points[2])
+    marker_width_px = (top_width + bottom_width) / 2.0
+
+    result = {"center_offset_x": center_offset_x}
+    if marker_width_px > 0.0 and marker_size_m > 0.0 and focal_length_px > 0.0:
+        result["distance_m"] = float(marker_size_m) * float(focal_length_px) / marker_width_px
+    return result
+
+
+def detection_to_json(
+    marker_id,
+    label_id,
+    confidence,
+    stable,
+    distance_m=None,
+    center_offset_x=None,
+):
     """Serialize one generic visual detection as JSON."""
-    return json.dumps(
-        {
-            "marker_id": int(marker_id),
-            "label_id": label_id,
-            "confidence": float(confidence),
-            "stable": bool(stable),
-            "stamp": time.time(),
-        },
-        sort_keys=True,
-    )
+    payload = {
+        "marker_id": int(marker_id),
+        "label_id": label_id,
+        "confidence": float(confidence),
+        "stable": bool(stable),
+        "stamp": time.time(),
+    }
+    if distance_m is not None:
+        payload["distance_m"] = float(distance_m)
+    if center_offset_x is not None:
+        payload["center_offset_x"] = float(center_offset_x)
+    return json.dumps(payload, sort_keys=True)
 
 
 def load_semantic_map(path):
@@ -86,13 +140,21 @@ def load_semantic_map(path):
 class ArucoDetector:
     """Small OpenCV ArUco adapter."""
 
-    def __init__(self, cv2_module, dictionary_name="DICT_4X4_50"):
+    def __init__(
+        self,
+        cv2_module,
+        dictionary_name="DICT_4X4_50",
+        marker_size_m=DEFAULT_MARKER_SIZE_M,
+        horizontal_fov_rad=DEFAULT_HORIZONTAL_FOV_RAD,
+    ):
         self.cv2 = cv2_module
         self.aruco = getattr(cv2_module, "aruco", None)
         self.available = self.aruco is not None
         self.dictionary = None
         self.parameters = None
         self.detector = None
+        self.marker_size_m = float(marker_size_m)
+        self.horizontal_fov_rad = float(horizontal_fov_rad)
 
         if not self.available:
             return
@@ -120,19 +182,31 @@ class ArucoDetector:
             return []
 
         if self.detector is not None:
-            _corners, ids, _rejected = self.detector.detectMarkers(cv_image)
+            corners, ids, _rejected = self.detector.detectMarkers(cv_image)
         else:
-            _corners, ids, _rejected = self.aruco.detectMarkers(
+            corners, ids, _rejected = self.aruco.detectMarkers(
                 cv_image, self.dictionary, parameters=self.parameters
             )
 
         if ids is None:
             return []
 
-        return [
-            {"marker_id": int(marker_id), "confidence": 1.0}
-            for marker_id in ids.flatten().tolist()
-        ]
+        image_width = cv_image.shape[1]
+        focal_length_px = focal_length_from_width(image_width, self.horizontal_fov_rad)
+        candidates = []
+        for marker_id, marker_corners in zip(ids.flatten().tolist(), corners):
+            corner_points = marker_corners.reshape((4, 2)).tolist()
+            candidate = {"marker_id": int(marker_id), "confidence": 1.0}
+            candidate.update(
+                marker_geometry_from_corners(
+                    corner_points,
+                    image_width=image_width,
+                    marker_size_m=self.marker_size_m,
+                    focal_length_px=focal_length_px,
+                )
+            )
+            candidates.append(candidate)
+        return candidates
 
 
 class VisionDetectorNode:
@@ -149,6 +223,12 @@ class VisionDetectorNode:
         self.required_frames = int(
             self.rospy.get_param("~required_frames", DEFAULT_REQUIRED_FRAMES)
         )
+        self.marker_size_m = float(
+            self.rospy.get_param("~marker_size_m", DEFAULT_MARKER_SIZE_M)
+        )
+        self.horizontal_fov_rad = float(
+            self.rospy.get_param("~horizontal_fov_rad", DEFAULT_HORIZONTAL_FOV_RAD)
+        )
         image_topic = self.rospy.get_param("~image_topic", DEFAULT_IMAGE_TOPIC)
         default_map = (
             Path(__file__).resolve().parents[1] / "config" / "semantic_map.yaml"
@@ -156,7 +236,15 @@ class VisionDetectorNode:
         semantic_map_path = self.rospy.get_param("~semantic_map", str(default_map))
         self.marker_index = build_marker_index(load_semantic_map(semantic_map_path))
 
-        self.detector = ArucoDetector(self.cv2) if self.cv2 is not None else None
+        self.detector = (
+            ArucoDetector(
+                self.cv2,
+                marker_size_m=self.marker_size_m,
+                horizontal_fov_rad=self.horizontal_fov_rad,
+            )
+            if self.cv2 is not None
+            else None
+        )
         if self.detector is None or not self.detector.available:
             self.rospy.logwarn(
                 "cv2.aruco is not available; vision_detector_node will not publish detections"
@@ -192,6 +280,8 @@ class VisionDetectorNode:
                 label_id=label_id,
                 confidence=candidate.get("confidence", 1.0),
                 stable=is_stable,
+                distance_m=candidate.get("distance_m"),
+                center_offset_x=candidate.get("center_offset_x"),
             )
             self.detections_pub.publish(self.string_msg(data=payload))
 

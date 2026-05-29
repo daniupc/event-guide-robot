@@ -140,8 +140,10 @@ Estrategia implementada actualmente:
 3. Girar lentamente publicando `geometry_msgs/Twist` en `/cmd_vel`.
 4. Consultar continuamente `/vision/detections`.
 5. Aceptar solo detecciones con `stable: true`.
-6. Detener el robot publicando velocidad cero si encuentra el objetivo.
-7. Detener el robot y publicar fallo si se agota el timeout.
+6. Cuando encuentra el ArUco correcto, entrar en `APPROACH_TARGET`.
+7. Centrar el marcador en la imagen y avanzar lentamente hacia el hasta quedar a unos 20 cm.
+8. Detener el robot publicando velocidad cero y publicar `FOUND_TARGET`.
+9. Detener el robot y publicar fallo si se agota el timeout.
 
 La navegacion entre varios waypoints de busqueda queda como siguiente mejora.
 
@@ -215,6 +217,7 @@ IDLE
   -> PARSE_TARGET
   -> NAVIGATE_TO_ZONE
   -> LOCAL_VISUAL_SEARCH
+  -> APPROACH_TARGET
   -> FOUND_TARGET
   -> IDLE
 ```
@@ -324,7 +327,8 @@ catkin_ws/src/event_guide_robot/
 - **Hecho en codigo:** implementar `local_search_manager_node.py`.
 - **Hecho en codigo:** esperar a `NAVIGATION_SUCCEEDED` antes de girar con `/cmd_vel`.
 - **Hecho en codigo:** revisar detecciones mientras gira.
-- **Hecho en codigo:** parar el robot al detectar el objetivo o al agotar timeout.
+- **Hecho en codigo:** al detectar el ArUco correcto, aproximarse visualmente hasta unos 20 cm si la distancia estimada esta disponible.
+- **Hecho en codigo:** parar el robot al alcanzar el objetivo o al agotar timeout.
 - **Pendiente:** visitar waypoints adicionales si el primer giro no encuentra el objetivo.
 
 ### Fase 6 - Vision MVP
@@ -356,7 +360,8 @@ La vision del MVP queda cerrada con ArUco:
 1. imprimir un marcador ArUco por stand;
 2. usar los `marker_id` numericos de `semantic_map.yaml` como IDs reales de los marcadores;
 3. exigir varias detecciones consecutivas antes de aceptar el objetivo;
-4. publicar siempre JSON en `/vision/detections` para que la busqueda local no dependa de detalles de OpenCV.
+4. publicar `center_offset_x` y `distance_m` estimados para la aproximacion final;
+5. publicar siempre JSON en `/vision/detections` para que la busqueda local no dependa de detalles de OpenCV.
 
 
 ### Orientacion final de los goals
@@ -372,6 +377,25 @@ Los comandos por terminal para probar despues de los bringups estan separados en
 ```text
 docs/real-robot-runbook.md
 ```
+
+
+### Aproximacion final al ArUco
+
+Tras detectar de forma estable el marcador correcto, el robot ya no termina inmediatamente: entra en `APPROACH_TARGET`. En ese estado usa la posicion horizontal del ArUco en la imagen (`center_offset_x`) para girar suavemente hacia la etiqueta y la distancia estimada (`distance_m`) para avanzar despacio hasta quedar a unos 20 cm.
+
+Parametros principales en `config/search_params.yaml`:
+
+```yaml
+approach_enabled: true
+approach_target_distance_m: 0.20
+approach_forward_speed_m_s: 0.08
+approach_turn_gain: 0.6
+approach_max_turn_speed_rad_s: 0.25
+approach_center_deadband: 0.15
+approach_timeout_sec: 20.0
+```
+
+La distancia se estima a partir del tamano aparente del marcador. El launch asume marcadores ArUco impresos de `0.16 m` de lado. Si imprimes otro tamano, ajusta `marker_size_m` en `guide_system.launch`.
 
 ## Comandos base del robot
 

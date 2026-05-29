@@ -29,8 +29,8 @@ Implemented nodes:
 
 - `semantic_planner_node.py`: `/guide/command` -> `/guide/plan` JSON.
 - `navigation_manager_node.py`: `/guide/plan` -> `/move_base` action goal.
-- `local_search_manager_node.py`: waits for `NAVIGATION_SUCCEEDED`, then rotates on `/cmd_vel`, listens to `/vision/detections`, and stops safely on success/timeout.
-- `vision_detector_node.py`: ArUco-based JSON detections when `cv2.aruco` is available; ArUco is the fixed MVP vision method.
+- `local_search_manager_node.py`: waits for `NAVIGATION_SUCCEEDED`, rotates on `/cmd_vel`, then after stable ArUco detection approaches the marker to about 20 cm using `center_offset_x` and `distance_m`, stopping safely on success/timeout.
+- `vision_detector_node.py`: ArUco-based JSON detections when `cv2.aruco` is available; ArUco is the fixed MVP vision method and detections include approximate marker distance for final approach.
 
 Current packaged map and semantic map:
 
@@ -84,7 +84,7 @@ vision_detector_node <--- /raspicam_node/image
 - For robot-real testing, set `rosparam set /use_sim_time false` before launching navigation. If it remains `true` from a Gazebo session, `/map` and `/map_metadata` can appear to hang and RViz may not display the map correctly even though `map_server` loaded the image.
 - Use `event_guide_robot/navigation_with_guide.launch` when possible: it now defaults to the packaged project map and sets a full-turn `yaw_goal_tolerance` so semantic goals do not force final rotation toward the map center in tight spaces.
 - Gazebo simulation needs a world that matches the 2D map. Using `turtlebot3_world` with the project map causes `/scan` to describe Gazebo walls, not the project map.
-- Camera/ArUco validation has not yet been completed on the real robot.
+- Camera/ArUco validation has not yet been completed on the real robot. The intended behavior is rotate-search, then visual approach to about 20 cm from the marker.
 
 ## Future ideas
 

@@ -456,7 +456,7 @@ Esto reduce falsos positivos.
 
 ### Que NO hace
 
-Este nodo no procesa imagenes, no usa OpenCV y no decide que stand quiere el usuario. Solo coordina el movimiento local y compara detecciones contra el plan.
+Este nodo no procesa imagenes, no usa OpenCV y no decide que stand quiere el usuario. Solo coordina el movimiento local, compara detecciones contra el plan y, tras encontrar el ArUco correcto, usa `center_offset_x` + `distance_m` para acercarse lentamente hasta unos 20 cm.
 
 ---
 
@@ -634,7 +634,7 @@ Publica:
 
 ### 5. `vision_detector_node.py`
 
-Analiza camara.
+Analiza camara y publica `marker_id`, estabilidad, offset horizontal y distancia estimada al ArUco.
 
 Si ve el marcador o numero asociado al stand, publica:
 

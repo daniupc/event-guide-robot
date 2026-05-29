@@ -180,3 +180,66 @@ def test_local_search_waits_for_navigation_success_before_rotating():
 
     assert node.state == local_search.STATE_SEARCHING
     assert rospy.publishers["/cmd_vel"].messages[-1].angular.z == node.rotation_speed
+
+
+def test_approach_command_turns_toward_marker_and_moves_forward_when_centered():
+    local_search = load_local_search_module()
+
+    right_marker = {"center_offset_x": 0.5}
+    centered_marker = {"center_offset_x": 0.05}
+
+    turning = local_search.make_approach_command(
+        right_marker,
+        forward_speed=0.08,
+        turn_gain=0.6,
+        max_turn_speed=0.25,
+        center_deadband=0.15,
+        twist_class=local_search._FallbackTwist,
+    )
+    forward = local_search.make_approach_command(
+        centered_marker,
+        forward_speed=0.08,
+        turn_gain=0.6,
+        max_turn_speed=0.25,
+        center_deadband=0.15,
+        twist_class=local_search._FallbackTwist,
+    )
+
+    assert turning.angular.z == -0.25
+    assert turning.linear.x == 0.0
+    assert forward.angular.z < 0.0
+    assert forward.linear.x == 0.08
+
+
+def test_local_search_enters_approach_after_stable_detection_then_finishes_at_target_distance():
+    local_search = load_local_search_module()
+    rospy = FakeRospy()
+    node = local_search.LocalSearchManagerNode(rospy, FakeStringMsg, local_search._FallbackTwist)
+    plan = {"status": "FOUND", "label_id": "qualcomm_ai_hub", "marker_id": 11}
+
+    node.on_plan(FakeStringMsg(json.dumps(plan)))
+    node.on_state(FakeStringMsg("NAVIGATION_SUCCEEDED"))
+    node.on_detection(FakeStringMsg(json.dumps({
+        "label_id": "qualcomm_ai_hub",
+        "marker_id": 11,
+        "stable": True,
+        "distance_m": 0.8,
+        "center_offset_x": 0.0,
+        "stamp": FakeTime.current,
+    })))
+
+    assert node.state == local_search.STATE_APPROACHING
+
+    node.on_timer(None)
+    assert rospy.publishers["/cmd_vel"].messages[-1].linear.x > 0.0
+
+    node.on_detection(FakeStringMsg(json.dumps({
+        "label_id": "qualcomm_ai_hub",
+        "marker_id": 11,
+        "stable": True,
+        "distance_m": 0.2,
+        "center_offset_x": 0.0,
+        "stamp": FakeTime.current,
+    })))
+
+    assert node.state == local_search.STATE_FOUND

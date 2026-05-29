@@ -74,6 +74,7 @@ TARGET_RESOLVED
 NAVIGATE_TO_ZONE
 NAVIGATION_SUCCEEDED
 LOCAL_VISUAL_SEARCH
+APPROACH_TARGET
 FOUND_TARGET
 ```
 
@@ -121,22 +122,22 @@ Cuando `/guide/state` llegue a:
 LOCAL_VISUAL_SEARCH
 ```
 
-puedes simular la deteccion de Qualcomm (`marker_id: 11`):
+puedes simular una deteccion lejana de Qualcomm (`marker_id: 11`) para probar la fase de aproximacion:
 
 ```bash
 source /opt/ros/noetic/setup.bash
 source ~/catkin_ws/devel/setup.bash
 
-rostopic pub -1 /vision/detections std_msgs/String "data: '{\"marker_id\":11,\"label_id\":\"qualcomm_ai_hub\",\"confidence\":1.0,\"stable\":true}'"
+rostopic pub -1 /vision/detections std_msgs/String "data: '{\"marker_id\":11,\"label_id\":\"qualcomm_ai_hub\",\"confidence\":1.0,\"stable\":true,\"distance_m\":0.8,\"center_offset_x\":0.0}'"
 ```
 
-El estado deberia pasar a:
+El estado deberia pasar a `APPROACH_TARGET` y el robot avanzara despacio. Para simular que ya ha llegado a unos 20 cm, publica despues:
 
-```text
-FOUND_TARGET
+```bash
+rostopic pub -1 /vision/detections std_msgs/String "data: '{\"marker_id\":11,\"label_id\":\"qualcomm_ai_hub\",\"confidence\":1.0,\"stable\":true,\"distance_m\":0.2,\"center_offset_x\":0.0}'"
 ```
 
-El robot debe publicar velocidad cero y detenerse.
+Entonces debe pasar a `FOUND_TARGET`, publicar velocidad cero y detenerse.
 
 ## Ver topics de camara
 

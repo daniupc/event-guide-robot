@@ -31,5 +31,7 @@
         output="screen">
     <param name="semantic_map" value="$(arg semantic_map)" />
     <param name="image_topic" value="$(arg image_topic)" />
+    <param name="marker_size_m" value="0.16" />
+    <param name="horizontal_fov_rad" value="1.085595" />
   </node>
 </launch>

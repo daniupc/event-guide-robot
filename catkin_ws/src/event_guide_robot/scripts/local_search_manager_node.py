@@ -11,6 +11,7 @@ from types import SimpleNamespace
 
 STATE_IDLE = "IDLE"
 STATE_SEARCHING = "LOCAL_VISUAL_SEARCH"
+STATE_APPROACHING = "APPROACH_TARGET"
 STATE_FOUND = "FOUND_TARGET"
 STATE_FAILED = "SEARCH_FAILED"
 
@@ -71,6 +72,49 @@ def make_twist_command(speed, twist_class=None):
     return twist
 
 
+def _clamp(value, minimum, maximum):
+    return max(minimum, min(maximum, value))
+
+
+def _detection_distance(detection):
+    try:
+        return float(detection["distance_m"])
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def target_is_close_enough(detection, target_distance_m):
+    """Return True when a visual target is already at the approach distance."""
+    distance_m = _detection_distance(detection)
+    return distance_m is not None and distance_m <= float(target_distance_m)
+
+
+def make_approach_command(
+    detection,
+    forward_speed,
+    turn_gain,
+    max_turn_speed,
+    center_deadband,
+    twist_class=None,
+):
+    """Build a Twist command that centers the marker and moves toward it."""
+    if twist_class is None:
+        twist_class = _FallbackTwist
+    twist = twist_class()
+
+    try:
+        offset = float(detection.get("center_offset_x", 0.0))
+    except (TypeError, ValueError):
+        offset = 0.0
+
+    # Positive image offset means the marker is to the robot's right. Positive
+    # angular.z turns left in ROS, so the sign is inverted.
+    twist.angular.z = _clamp(-offset * float(turn_gain), -float(max_turn_speed), float(max_turn_speed))
+    if abs(offset) <= float(center_deadband):
+        twist.linear.x = float(forward_speed)
+    return twist
+
+
 def parse_detection_json(text):
     """Parse a JSON object detection payload, returning None for bad input."""
     try:
@@ -92,6 +136,21 @@ class LocalSearchManagerNode:
         self.search_timeout = self.rospy.get_param("~search_timeout_sec", 45.0)
         self.detection_stale = self.rospy.get_param("~detection_stale_sec", 1.0)
         self.control_rate_hz = self.rospy.get_param("~control_rate_hz", 10.0)
+        self.approach_enabled = self.rospy.get_param("~approach_enabled", True)
+        self.approach_target_distance_m = self.rospy.get_param(
+            "~approach_target_distance_m", 0.20
+        )
+        self.approach_forward_speed_m_s = self.rospy.get_param(
+            "~approach_forward_speed_m_s", 0.08
+        )
+        self.approach_turn_gain = self.rospy.get_param("~approach_turn_gain", 0.6)
+        self.approach_max_turn_speed_rad_s = self.rospy.get_param(
+            "~approach_max_turn_speed_rad_s", 0.25
+        )
+        self.approach_center_deadband = self.rospy.get_param(
+            "~approach_center_deadband", 0.15
+        )
+        self.approach_timeout_sec = self.rospy.get_param("~approach_timeout_sec", 20.0)
 
         # Kept as a parameter for launch/config symmetry. The continuous timer
         # loop owns timeout handling so the robot never spins forever.
@@ -102,6 +161,8 @@ class LocalSearchManagerNode:
         self.active_plan = None
         self.pending_plan = None
         self.search_start_time = None
+        self.approach_start_time = None
+        self.latest_target_detection = None
         self.last_detection_time = None
         self.state = STATE_IDLE
 
@@ -136,12 +197,14 @@ class LocalSearchManagerNode:
             self.rospy.logwarn("Ignoring plan without label_id or marker_id: %s", plan)
             return
 
-        if self.state == STATE_SEARCHING:
+        if self.state in (STATE_SEARCHING, STATE_APPROACHING):
             self.stop_robot()
 
         self.pending_plan = plan
         self.active_plan = None
         self.search_start_time = None
+        self.approach_start_time = None
+        self.latest_target_detection = None
         self.last_detection_time = None
         self.state = STATE_IDLE
         self.rospy.loginfo(
@@ -154,6 +217,8 @@ class LocalSearchManagerNode:
         self.active_plan = plan
         self.pending_plan = None
         self.search_start_time = self._now()
+        self.approach_start_time = None
+        self.latest_target_detection = None
         self.last_detection_time = None
         self.state = STATE_SEARCHING
         self.publish_text(self.state_pub, STATE_SEARCHING)
@@ -170,13 +235,39 @@ class LocalSearchManagerNode:
             self.pending_plan = None
             self.active_plan = None
             self.search_start_time = None
+            self.approach_start_time = None
+            self.latest_target_detection = None
             self.last_detection_time = None
-            if self.state == STATE_SEARCHING:
+            if self.state in (STATE_SEARCHING, STATE_APPROACHING):
                 self.stop_robot()
             self.state = STATE_IDLE
 
+    def finish_found(self):
+        self.stop_robot()
+        self.state = STATE_FOUND
+        self.publish_text(self.state_pub, STATE_FOUND)
+        result = {
+            "status": STATE_FOUND,
+            "zone_id": self.active_plan.get("zone_id"),
+            "label_id": self.active_plan.get("label_id"),
+            "marker_id": self.active_plan.get("marker_id"),
+        }
+        self.publish_text(self.result_pub, json.dumps(result, sort_keys=True))
+        self.rospy.loginfo("Local visual target reached: %s", result)
+
+    def start_approach(self, detection):
+        self.latest_target_detection = detection
+        self.approach_start_time = self._now()
+        self.state = STATE_APPROACHING
+        self.publish_text(self.state_pub, STATE_APPROACHING)
+        self.rospy.loginfo(
+            "Approaching visual target marker=%s distance=%s",
+            detection.get("marker_id"),
+            detection.get("distance_m"),
+        )
+
     def on_detection(self, message):
-        if self.state != STATE_SEARCHING or self.active_plan is None:
+        if self.state not in (STATE_SEARCHING, STATE_APPROACHING) or self.active_plan is None:
             return
 
         detection = parse_detection_json(message.data)
@@ -197,19 +288,25 @@ class LocalSearchManagerNode:
 
         self.last_detection_time = now
         if target_matches_detection(self.active_plan, detection):
-            self.stop_robot()
-            self.state = STATE_FOUND
-            self.publish_text(self.state_pub, STATE_FOUND)
-            result = {
-                "status": STATE_FOUND,
-                "zone_id": self.active_plan.get("zone_id"),
-                "label_id": self.active_plan.get("label_id"),
-                "marker_id": self.active_plan.get("marker_id"),
-            }
-            self.publish_text(self.result_pub, json.dumps(result, sort_keys=True))
-            self.rospy.loginfo("Local visual target found: %s", result)
+            self.latest_target_detection = detection
+            if not self.approach_enabled:
+                self.finish_found()
+            elif target_is_close_enough(detection, self.approach_target_distance_m):
+                self.finish_found()
+            elif _detection_distance(detection) is not None:
+                if self.state != STATE_APPROACHING:
+                    self.start_approach(detection)
+            else:
+                self.rospy.logwarn(
+                    "Target detected without distance_m; stopping without approach"
+                )
+                self.finish_found()
 
     def on_timer(self, _event):
+        if self.state == STATE_APPROACHING and self.active_plan is not None:
+            self.on_approach_timer()
+            return
+
         if self.state != STATE_SEARCHING or self.active_plan is None:
             return
 
@@ -230,6 +327,45 @@ class LocalSearchManagerNode:
             return
 
         self.cmd_pub.publish(make_twist_command(self.rotation_speed, self.twist_msg))
+
+    def on_approach_timer(self):
+        now = self._now()
+        if should_timeout(self.approach_start_time, now, self.approach_timeout_sec):
+            self.stop_robot()
+            self.state = STATE_FAILED
+            result = {
+                "status": STATE_FAILED,
+                "zone_id": self.active_plan.get("zone_id"),
+                "label_id": self.active_plan.get("label_id"),
+                "marker_id": self.active_plan.get("marker_id"),
+                "reason": "approach timeout",
+            }
+            self.publish_text(self.state_pub, STATE_FAILED)
+            self.publish_text(self.result_pub, json.dumps(result, sort_keys=True))
+            self.rospy.logwarn("Visual approach timed out: %s", result)
+            return
+
+        if self.last_detection_time is None or (now - self.last_detection_time) > self.detection_stale:
+            self.stop_robot()
+            self.rospy.logwarn("Stopping approach while target detection is stale")
+            return
+
+        if target_is_close_enough(
+            self.latest_target_detection, self.approach_target_distance_m
+        ):
+            self.finish_found()
+            return
+
+        self.cmd_pub.publish(
+            make_approach_command(
+                self.latest_target_detection,
+                forward_speed=self.approach_forward_speed_m_s,
+                turn_gain=self.approach_turn_gain,
+                max_turn_speed=self.approach_max_turn_speed_rad_s,
+                center_deadband=self.approach_center_deadband,
+                twist_class=self.twist_msg,
+            )
+        )
 
 
 def main():

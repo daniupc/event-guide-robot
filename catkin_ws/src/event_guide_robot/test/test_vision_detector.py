@@ -85,3 +85,36 @@ def test_default_image_topic_is_turtlebot3_rpicamera_raw_image():
     detector = load_detector_module()
 
     assert detector.DEFAULT_IMAGE_TOPIC == "/raspicam_node/image"
+
+
+def test_marker_geometry_estimates_center_offset_and_distance():
+    detector = load_detector_module()
+    corners = [(280.0, 220.0), (360.0, 220.0), (360.0, 300.0), (280.0, 300.0)]
+
+    geometry = detector.marker_geometry_from_corners(
+        corners,
+        image_width=640,
+        marker_size_m=0.16,
+        focal_length_px=500.0,
+    )
+
+    assert geometry["center_offset_x"] == 0.0
+    assert geometry["distance_m"] == 1.0
+
+
+def test_detection_json_includes_optional_approach_geometry():
+    detector = load_detector_module()
+
+    payload = json.loads(
+        detector.detection_to_json(
+            marker_id=11,
+            label_id="qualcomm_ai_hub",
+            confidence=1.0,
+            stable=True,
+            distance_m=0.42,
+            center_offset_x=-0.25,
+        )
+    )
+
+    assert payload["distance_m"] == 0.42
+    assert payload["center_offset_x"] == -0.25

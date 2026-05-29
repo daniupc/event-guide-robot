@@ -1,7 +1,7 @@
 <launch>
   <arg name="map_file" default="$(find event_guide_robot)/maps/map.yaml" />
   <arg name="semantic_map" default="$(find event_guide_robot)/config/semantic_map.yaml" />
-  <arg name="image_topic" default="/camera/image" />
+  <arg name="image_topic" default="/raspicam_node/image" />
   <arg name="yaw_goal_tolerance" default="6.283185307" />
 
   <!-- The semantic goals are narrow-zone arrival points. We do not need the

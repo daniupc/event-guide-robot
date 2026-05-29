@@ -1,7 +1,7 @@
 <launch>
   <arg name="semantic_map" default="$(find event_guide_robot)/config/semantic_map.yaml" />
   <arg name="search_params" default="$(find event_guide_robot)/config/search_params.yaml" />
-  <arg name="image_topic" default="/camera/image" />
+  <arg name="image_topic" default="/raspicam_node/image" />
   <arg name="navigation_timeout_sec" default="90.0" />
 
   <node pkg="event_guide_robot"

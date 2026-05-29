@@ -52,3 +52,12 @@ def test_navigation_launch_uses_packaged_map_by_default():
     assert args["map_file"] == "$(find event_guide_robot)/maps/map.yaml"
     assert (PACKAGE_ROOT / "maps" / "map.yaml").is_file()
     assert (PACKAGE_ROOT / "maps" / "map.pgm").is_file()
+
+
+def test_launch_files_default_to_turtlebot3_rpicamera_topic():
+    expected_topic = "/raspicam_node/image"
+    for launch_name in ("guide_system.launch", "navigation_with_guide.launch"):
+        root = ET.parse(PACKAGE_ROOT / "launch" / launch_name).getroot()
+        args = {arg.attrib["name"]: arg.attrib.get("default") for arg in root.findall("arg")}
+
+        assert args["image_topic"] == expected_topic

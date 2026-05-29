@@ -79,3 +79,9 @@ def test_detection_to_json_contains_generic_detection_fields_and_stamp():
     assert payload["confidence"] == 0.75
     assert payload["stable"] is True
     assert isinstance(payload["stamp"], float)
+
+
+def test_default_image_topic_is_turtlebot3_rpicamera_raw_image():
+    detector = load_detector_module()
+
+    assert detector.DEFAULT_IMAGE_TOPIC == "/raspicam_node/image"

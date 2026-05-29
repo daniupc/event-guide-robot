@@ -1,6 +1,6 @@
 # Runbook de prueba en robot real
 
-Esta guia empieza **despues de tener hechos los bringups del robot y de la camara**. Es decir, asume que el PC ya tiene `roscore` y que el robot ya publica odometria, `/scan` y los topics de camara correspondientes.
+Esta guia empieza **despues de tener hechos los bringups del robot y de la camara**. La camara oficial del proyecto es la TurtleBot3 Raspberry Pi Camera (`turtlebot3_rpicamera.launch`) y el topic esperado por defecto es `/raspicam_node/image`. Es decir, asume que el PC ya tiene `roscore` y que el robot ya publica odometria, `/scan` y el topic de rpicamera correspondiente.
 
 ## Terminal 1 - Navegacion + sistema guia
 
@@ -140,13 +140,13 @@ El robot debe publicar velocidad cero y detenerse.
 
 ## Ver topics de camara
 
-La camara real todavia queda pendiente de validacion. Para localizar el topic:
+La camara real es `rpicamera`. Para validar que publica el topic esperado:
 
 ```bash
 rostopic list | grep image
 ```
 
-Si no es `/camera/image`, lanza el sistema indicando el topic correcto:
+Si por configuracion local no es `/raspicam_node/image`, lanza el sistema indicando el topic correcto:
 
 ```bash
 roslaunch event_guide_robot navigation_with_guide.launch image_topic:=/topic/de/la/camara

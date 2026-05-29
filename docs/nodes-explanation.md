@@ -479,7 +479,7 @@ La decision de vision del MVP queda cerrada: este nodo detecta marcadores ArUco 
 Se suscribe a:
 
 ```text
-/camera/image
+/raspicam_node/image
 ```
 
 aunque el topic es configurable con:

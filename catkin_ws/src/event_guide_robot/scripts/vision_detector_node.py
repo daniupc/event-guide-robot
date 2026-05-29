@@ -17,7 +17,7 @@ except ImportError:  # pragma: no cover - only relevant on incomplete ROS images
 
 
 DEFAULT_REQUIRED_FRAMES = 3
-DEFAULT_IMAGE_TOPIC = "/camera/image"
+DEFAULT_IMAGE_TOPIC = "/raspicam_node/image"
 DEFAULT_DETECTIONS_TOPIC = "/vision/detections"
 
 

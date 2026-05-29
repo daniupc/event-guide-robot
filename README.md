@@ -90,7 +90,7 @@ navigation_manager_node ---> move_base ---> /cmd_vel
 local_search_manager_node
      |
      v
-vision_detector_node <--- /camera/image
+vision_detector_node <--- /raspicam_node/image
      |
      v
 Resultado: objetivo encontrado / no encontrado
@@ -239,7 +239,7 @@ Topics de entrada/salida recomendados:
 /vision/detections          std_msgs/String con JSON
 /cmd_vel                    geometry_msgs/Twist
 /scan                       sensor_msgs/LaserScan
-/camera/image               sensor_msgs/Image
+/raspicam_node/image               sensor_msgs/Image
 /amcl_pose                  geometry_msgs/PoseWithCovarianceStamped
 ```
 
@@ -400,12 +400,20 @@ ssh ubuntu@IP_ROBOT
 roslaunch turtlebot3_bringup turtlebot3_robot.launch
 ```
 
-Camara:
+Camara oficial del proyecto: TurtleBot3 Raspberry Pi Camera (`rpicamera`).
 
 ```bash
 ssh ubuntu@IP_ROBOT
 roslaunch turtlebot3_bringup turtlebot3_rpicamera.launch
 ```
+
+El topic de imagen cruda esperado por defecto es:
+
+```text
+/raspicam_node/image
+```
+
+El topic comprimido `/raspicam_node/image/compressed` puede existir, pero `vision_detector_node.py` usa `sensor_msgs/Image`, por lo que debe recibir la imagen cruda.
 
 Remote en PC:
 

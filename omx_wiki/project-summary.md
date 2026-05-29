@@ -66,7 +66,7 @@ navigation_manager_node ---> move_base ---> /cmd_vel
 local_search_manager_node
       |
       v
-vision_detector_node <--- /camera/image
+vision_detector_node <--- /raspicam_node/image
 ```
 
 ## Recommended implementation order

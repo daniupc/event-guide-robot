@@ -60,15 +60,17 @@ py_compile OK para los nodos Python.
 XML/YAML validos.
 ```
 
-Pendiente de validar en entorno ROS:
+Validacion en robot real:
 
 ```text
-catkin_make
-roslaunch event_guide_robot guide_system.launch
-prueba real/simulada con move_base, camara, /scan y /cmd_vel
+Probado en TurtleBot3 real con ROS 1 usando el catkin_ws original.
+El mapa se carga y RViz lo muestra correctamente cuando /use_sim_time=false.
+La navegacion con move_base funciona con el mapa real y los goals semanticos.
+El parser resuelve aliases como qualcomm y publica /guide/plan.
+La camara/vision ArUco queda pendiente de probar.
 ```
 
-En el entorno de desarrollo actual no se pudo ejecutar `catkin_make` porque no esta instalado.
+Nota importante para robot real: si antes se uso Gazebo, puede quedar `/use_sim_time=true`. En robot real debe ser `false`; si no, `/map`, `/map_metadata` o RViz pueden parecer bloqueados aunque `map_server` haya cargado el mapa.
 
 ## Arquitectura implementada
 
@@ -311,7 +313,8 @@ catkin_ws/src/event_guide_robot/
 - **Hecho en codigo:** esperar resultado.
 - **Hecho en codigo:** publicar estado en `/guide/state`.
 - **Hecho en codigo:** manejar `SUCCEEDED`, fallo de action server y timeout.
-- **Pendiente:** validacion real con `move_base`.
+- **Hecho en launch:** relajar `yaw_goal_tolerance` para que no tenga que apuntar al centro del mapa al llegar.
+- **Validado en robot real:** `move_base` navega con el mapa real cuando `/use_sim_time=false`.
 
 ### Fase 5 - Busqueda local
 
@@ -352,7 +355,25 @@ La vision del MVP queda cerrada con ArUco:
 3. exigir varias detecciones consecutivas antes de aceptar el objetivo;
 4. publicar siempre JSON en `/vision/detections` para que la busqueda local no dependa de detalles de OpenCV.
 
+
+### Orientacion final de los goals
+
+En las primeras pruebas reales, los `yaw` calculados hacia el centro del mapa hacian que el robot tardase mucho en recolocarse al final del trayecto, especialmente en espacios estrechos. La solucion elegida es no exigir una orientacion final estricta para los goals semanticos: `navigation_with_guide.launch` configura una tolerancia de yaw de vuelta completa (`6.283185307` rad).
+
+El `MoveBaseGoal` sigue llevando quaternion porque ROS lo requiere, pero `move_base` debe considerar valido llegar al `x/y` aunque el robot mantenga la orientacion natural de llegada.
+
 ## Comandos base del robot
+
+### Nota critica: tiempo real vs simulacion
+
+En robot real asegura siempre:
+
+```bash
+rosparam set /use_sim_time false
+rosparam get /use_sim_time
+```
+
+Debe devolver `false`. Si estaba en `true` por haber usado Gazebo, `rostopic echo -n 1 /map` o `/map_metadata` puede no devolver datos y RViz puede no mostrar bien el mapa. Tras cambiarlo, relanza `map_server`/navegacion.
 
 En el PC:
 
@@ -381,17 +402,29 @@ Remote en PC:
 roslaunch turtlebot3_bringup turtlebot3_remote.launch
 ```
 
-Navegacion:
+Navegacion + sistema guia recomendado:
 
 ```bash
-roslaunch turtlebot3_navigation turtlebot3_navigation.launch map_file:=/ruta/al/map.yaml
+roslaunch event_guide_robot navigation_with_guide.launch \
+  map_file:=$(rospack find event_guide_robot)/maps/map.yaml
 ```
 
-Sistema guia:
+Este launch incluye `turtlebot3_navigation` y nuestros nodos guia. Ademas relaja la orientacion final del goal con:
+
+```text
+/move_base/DWAPlannerROS/yaw_goal_tolerance = 6.283185307
+/move_base/TrajectoryPlannerROS/yaw_goal_tolerance = 6.283185307
+```
+
+Asi el robot no pierde tiempo recolocandose para mirar a un yaw concreto al llegar a una zona estrecha; acepta la orientacion con la que llegue y pasa a la busqueda visual.
+
+Si por algun motivo lanzas navegacion por separado, usa despues solo el sistema guia:
 
 ```bash
 roslaunch event_guide_robot guide_system.launch
 ```
+
+En ese caso la tolerancia de yaw depende de la configuracion de `move_base` que hayas cargado.
 
 Prueba de comando:
 

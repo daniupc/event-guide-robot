@@ -2,6 +2,18 @@
   <arg name="map_file" default="$(env HOME)/map.yaml" />
   <arg name="semantic_map" default="$(find event_guide_robot)/config/semantic_map.yaml" />
   <arg name="image_topic" default="/camera/image" />
+  <arg name="yaw_goal_tolerance" default="6.283185307" />
+
+  <!-- The semantic goals are narrow-zone arrival points. We do not need the
+       robot to rotate to a specific final heading before starting visual
+       search, because that wastes time and space in tight corridors. Keep a
+       full-turn yaw tolerance so move_base accepts the current arrival heading.
+       Both planner namespaces are set for TurtleBot3 configs that use either
+       DWAPlannerROS or TrajectoryPlannerROS. -->
+  <param name="/move_base/DWAPlannerROS/yaw_goal_tolerance"
+         value="$(arg yaw_goal_tolerance)" />
+  <param name="/move_base/TrajectoryPlannerROS/yaw_goal_tolerance"
+         value="$(arg yaw_goal_tolerance)" />
 
   <!-- Bring up TurtleBot3 navigation separately if a custom launch is needed.
        This wrapper documents the expected integration point for the demo. -->

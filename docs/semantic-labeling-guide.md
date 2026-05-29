@@ -31,7 +31,7 @@ Se genero a partir de los puntos medidos en `puntos.txt`:
 | `zona_abajo` | 0.853394627571106 | 0.3277086019515991 | Ericsson 5G Arena, GSMA Innovation City |
 | `zona_derecha` | -0.07007773220539093 | 0.84162437915802 | Meta XR Showcase, NVIDIA Edge AI |
 
-Los `yaw` actuales se calcularon para mirar hacia el centroide de los cuatro puntos. Deben revisarse en RViz si la demo requiere que el robot mire hacia carteles o paredes concretas.
+Los `yaw` actuales se calcularon inicialmente para mirar hacia el centroide de los cuatro puntos, pero en la demo real no se quiere forzar esa orientacion porque los espacios son estrechos. El launch recomendado relaja `yaw_goal_tolerance` para que el robot acepte la orientacion natural de llegada. Solo revisa `yaw` en RViz si necesitas una orientacion exacta para una prueba concreta.
 
 Los campos `marker_id` son IDs ArUco definitivos para el MVP. Cada valor debe corresponder al marcador impreso y colocado junto al stand correspondiente.
 
@@ -308,7 +308,7 @@ Antes de dar por buena una etiqueta semantica:
 - El `nav_goal` debe estar en zona libre del costmap.
 - El robot debe poder llegar a ese goal desde RViz.
 - Los `search_waypoints` no deben estar pegados a paredes u obstaculos.
-- La orientacion `yaw` debe permitir mirar hacia carteles o stands.
+- La orientacion `yaw` no debe ser estricta en pasillos estrechos; usa la tolerancia amplia de `navigation_with_guide.launch` salvo que una prueba concreta requiera mirar a un cartel.
 - La etiqueta debe tener aliases naturales.
 - Si usa marcador visual, el `marker_id` debe ser unico.
 - La deteccion debe confirmarse durante varios frames antes de declarar exito.

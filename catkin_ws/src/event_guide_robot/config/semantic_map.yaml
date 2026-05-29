@@ -3,8 +3,10 @@
 # Coordinate source:
 # - Positions come from puntos.txt, captured in the ROS "map" frame.
 # - The centroid below is the average of the four measured points.
-# - yaw values are calculated so each zone faces that centroid. Replace them
-#   with RViz/AMCL-measured orientations if the demo layout needs another view.
+# - yaw values were originally calculated toward the centroid, but final
+#   orientation is intentionally relaxed in navigation_with_guide.launch via
+#   move_base yaw_goal_tolerance. In tight spaces, the robot should arrive at
+#   the x/y goal and keep whichever heading the local planner naturally used.
 # - labels use ArUco/AprilTag-style numeric marker IDs as the primary visual
 #   signal. Print one marker per stand and place it next to the human-readable
 #   stand name. Colors can be added physically as a secondary debugging cue, but
@@ -14,7 +16,7 @@ metadata:
   frame_id: map
   map_file: ../../../../map.yaml
   position_source: puntos.txt
-  yaw_source: inferred_towards_centroid
+  yaw_source: relaxed_by_move_base_yaw_goal_tolerance
   centroid:
     x: 0.13666607066988945
     y: 0.1921076737344265

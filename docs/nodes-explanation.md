@@ -230,7 +230,7 @@ move_base_msgs/MoveBaseAction
 
 5. Convierte el `yaw` en quaternion.
 
-   ROS no manda orientacion como `yaw` directamente en `MoveBaseGoal`, sino como quaternion:
+   ROS no manda orientacion como `yaw` directamente en `MoveBaseGoal`, sino como quaternion. En la demo real, `navigation_with_guide.launch` relaja `yaw_goal_tolerance` para que esta orientacion no obligue al robot a recolocarse al final del trayecto:
 
    ```text
    orientation.x

@@ -29,3 +29,15 @@ def test_navigation_with_guide_launch_includes_navigation_and_guide():
 
     assert any("turtlebot3_navigation.launch" in include for include in includes)
     assert any("guide_system.launch" in include for include in includes)
+
+
+def test_navigation_launch_relaxes_final_yaw_by_default():
+    launch_file = PACKAGE_ROOT / "launch" / "navigation_with_guide.launch"
+
+    root = ET.parse(launch_file).getroot()
+    args = {arg.attrib["name"]: arg.attrib.get("default") for arg in root.findall("arg")}
+    params = {param.attrib["name"]: param.attrib.get("value") for param in root.findall("param")}
+
+    assert args["yaw_goal_tolerance"] == "6.283185307"
+    assert params["/move_base/DWAPlannerROS/yaw_goal_tolerance"] == "$(arg yaw_goal_tolerance)"
+    assert params["/move_base/TrajectoryPlannerROS/yaw_goal_tolerance"] == "$(arg yaw_goal_tolerance)"

@@ -43,6 +43,25 @@ def test_navigation_launch_relaxes_final_yaw_by_default():
     assert params["/move_base/TrajectoryPlannerROS/yaw_goal_tolerance"] == "$(arg yaw_goal_tolerance)"
 
 
+def test_navigation_launch_loads_move_base_safety_overrides():
+    launch_file = PACKAGE_ROOT / "launch" / "navigation_with_guide.launch"
+
+    root = ET.parse(launch_file).getroot()
+    args = {arg.attrib["name"]: arg.attrib.get("default") for arg in root.findall("arg")}
+    rosparams = [
+        rosparam.attrib
+        for rosparam in root.findall("rosparam")
+        if rosparam.attrib.get("command") == "load"
+    ]
+
+    assert args["move_base_safety_params"] == "$(find event_guide_robot)/config/move_base_safety.yaml"
+    assert any(
+        rosparam.get("file") == "$(arg move_base_safety_params)"
+        for rosparam in rosparams
+    )
+    assert (PACKAGE_ROOT / "config" / "move_base_safety.yaml").is_file()
+
+
 def test_navigation_launch_uses_packaged_map_by_default():
     launch_file = PACKAGE_ROOT / "launch" / "navigation_with_guide.launch"
 

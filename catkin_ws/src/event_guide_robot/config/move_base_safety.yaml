@@ -1,0 +1,22 @@
+# Conservative move_base overrides for the real event-guide demo.
+#
+# These values bias both the global and local planners away from walls. They do
+# not replace turtlebot3_navigation; navigation_with_guide.launch loads this file
+# after the TurtleBot3 launch so these parameters override the defaults.
+move_base:
+  global_costmap:
+    footprint_padding: 0.03
+    inflation_layer:
+      inflation_radius: 0.45
+      cost_scaling_factor: 2.0
+
+  local_costmap:
+    footprint_padding: 0.03
+    inflation_layer:
+      inflation_radius: 0.45
+      cost_scaling_factor: 2.0
+
+  DWAPlannerROS:
+    occdist_scale: 0.08
+    path_distance_bias: 24.0
+    goal_distance_bias: 18.0

@@ -465,6 +465,8 @@ Este launch incluye `turtlebot3_navigation` y nuestros nodos guia. Ademas relaja
 /move_base/TrajectoryPlannerROS/yaw_goal_tolerance = 6.283185307
 ```
 
+Tambien carga `config/move_base_safety.yaml` despues de `turtlebot3_navigation`. Ese YAML aumenta la inflacion de obstaculos y sube el peso de obstaculos del DWA para que el robot prefiera trayectorias mas separadas de paredes.
+
 Asi el robot no pierde tiempo recolocandose para mirar a un yaw concreto al llegar a una zona estrecha; acepta la orientacion con la que llegue y pasa a la busqueda visual.
 
 Si por algun motivo lanzas navegacion por separado, usa despues solo el sistema guia:

@@ -23,12 +23,19 @@ Este launch usa por defecto:
 $(find event_guide_robot)/maps/map.yaml
 ```
 
-y tambien relaja el yaw final de `move_base` para que el robot no tenga que recolocarse mirando a una orientacion concreta al llegar a la zona.
+y tambien carga `config/move_base_safety.yaml`, que aumenta la inflacion de obstaculos y penaliza trayectorias pegadas a paredes. Ademas relaja el yaw final de `move_base` para que el robot no tenga que recolocarse mirando a una orientacion concreta al llegar a la zona.
 
 Si quieres lanzar con otro mapa:
 
 ```bash
 roslaunch event_guide_robot navigation_with_guide.launch map_file:=/ruta/a/otro/map.yaml
+```
+
+Si en el robot real el pasillo queda demasiado estrecho o `move_base` deja de encontrar ruta, puedes probar un YAML alternativo menos conservador:
+
+```bash
+roslaunch event_guide_robot navigation_with_guide.launch \
+  move_base_safety_params:=/ruta/a/otro/move_base_safety.yaml
 ```
 
 ## Terminal 2 - Comprobaciones basicas

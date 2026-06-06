@@ -3,23 +3,30 @@
   <arg name="semantic_map" default="$(find event_guide_robot)/config/semantic_map.yaml" />
   <arg name="image_topic" default="/raspicam_node/image" />
   <arg name="yaw_goal_tolerance" default="6.283185307" />
-
-  <!-- The semantic goals are narrow-zone arrival points. We do not need the
-       robot to rotate to a specific final heading before starting visual
-       search, because that wastes time and space in tight corridors. Keep a
-       full-turn yaw tolerance so move_base accepts the current arrival heading.
-       Both planner namespaces are set for TurtleBot3 configs that use either
-       DWAPlannerROS or TrajectoryPlannerROS. -->
-  <param name="/move_base/DWAPlannerROS/yaw_goal_tolerance"
-         value="$(arg yaw_goal_tolerance)" />
-  <param name="/move_base/TrajectoryPlannerROS/yaw_goal_tolerance"
-         value="$(arg yaw_goal_tolerance)" />
+  <arg name="move_base_safety_params"
+       default="$(find event_guide_robot)/config/move_base_safety.yaml" />
 
   <!-- Bring up TurtleBot3 navigation separately if a custom launch is needed.
        This wrapper documents the expected integration point for the demo. -->
   <include file="$(find turtlebot3_navigation)/launch/turtlebot3_navigation.launch">
     <arg name="map_file" value="$(arg map_file)" />
   </include>
+
+  <!-- Load conservative move_base overrides after turtlebot3_navigation so the
+       robot prefers paths with more obstacle clearance in the real demo map. -->
+  <rosparam command="load" file="$(arg move_base_safety_params)" />
+
+  <!-- The semantic goals are narrow-zone arrival points. We do not need the
+       robot to rotate to a specific final heading before starting visual
+       search, because that wastes time and space in tight corridors. Keep a
+       full-turn yaw tolerance so move_base accepts the current arrival heading.
+       Both planner namespaces are set for TurtleBot3 configs that use either
+       DWAPlannerROS or TrajectoryPlannerROS. These params are set after the
+       TurtleBot3 include so they override its planner defaults. -->
+  <param name="/move_base/DWAPlannerROS/yaw_goal_tolerance"
+         value="$(arg yaw_goal_tolerance)" />
+  <param name="/move_base/TrajectoryPlannerROS/yaw_goal_tolerance"
+         value="$(arg yaw_goal_tolerance)" />
 
   <include file="$(find event_guide_robot)/launch/guide_system.launch">
     <arg name="semantic_map" value="$(arg semantic_map)" />

@@ -5,6 +5,9 @@
   <arg name="yaw_goal_tolerance" default="6.283185307" />
   <arg name="move_base_safety_params"
        default="$(find event_guide_robot)/config/move_base_safety.yaml" />
+  <arg name="navigation_backend" default="safe" />
+  <arg name="safe_navigation_params"
+       default="$(find event_guide_robot)/config/safe_navigation.yaml" />
 
   <!-- Bring up TurtleBot3 navigation separately if a custom launch is needed.
        This wrapper documents the expected integration point for the demo. -->
@@ -31,5 +34,7 @@
   <include file="$(find event_guide_robot)/launch/guide_system.launch">
     <arg name="semantic_map" value="$(arg semantic_map)" />
     <arg name="image_topic" value="$(arg image_topic)" />
+    <arg name="navigation_backend" value="$(arg navigation_backend)" />
+    <arg name="safe_navigation_params" value="$(arg safe_navigation_params)" />
   </include>
 </launch>

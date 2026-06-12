@@ -54,6 +54,12 @@ def test_navigation_launch_uses_packaged_map_by_default():
     assert (PACKAGE_ROOT / "maps" / "mapa_passadis.pgm").is_file()
 
 
+def test_legacy_map_yaml_points_to_pasillo_image():
+    legacy_map = (PACKAGE_ROOT / "maps" / "map.yaml").read_text()
+
+    assert "image: mapa_passadis.pgm" in legacy_map
+
+
 def test_launch_files_default_to_turtlebot3_rpicamera_topic():
     expected_topic = "/raspicam_node/image"
     for launch_name in ("guide_system.launch", "navigation_with_guide.launch"):

@@ -5,18 +5,18 @@
 # after the TurtleBot3 launch so these parameters override the defaults.
 move_base:
   global_costmap:
-    footprint_padding: 0.03
+    footprint_padding: 0.06
     inflation_layer:
-      inflation_radius: 0.45
-      cost_scaling_factor: 2.0
+      inflation_radius: 1.0
+      cost_scaling_factor: 0.5
 
   local_costmap:
-    footprint_padding: 0.03
+    footprint_padding: 0.06
     inflation_layer:
-      inflation_radius: 0.45
-      cost_scaling_factor: 2.0
+      inflation_radius: 1.0
+      cost_scaling_factor: 0.5
 
   DWAPlannerROS:
-    occdist_scale: 0.08
-    path_distance_bias: 24.0
-    goal_distance_bias: 18.0
+    occdist_scale: 0.50
+    path_distance_bias: 6.0
+    goal_distance_bias: 8.0

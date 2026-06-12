@@ -26,7 +26,7 @@ def test_resolves_user_request_to_stand_and_zone():
     assert result["label_id"] == "qualcomm_ai_hub"
     assert result["display_name"] == "Qualcomm AI Hub"
     assert result["marker_id"] == 11
-    assert result["nav_goal"]["x"] == -0.529138445854187
+    assert result["nav_goal"]["x"] == 0.25
     assert result["search_waypoints"]
 
 

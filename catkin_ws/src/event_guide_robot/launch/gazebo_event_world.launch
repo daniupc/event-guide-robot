@@ -1,0 +1,32 @@
+<launch>
+  <arg name="gui" default="true" />
+  <arg name="paused" default="false" />
+  <arg name="use_sim_time" default="true" />
+  <arg name="world_file" default="$(find event_guide_robot)/worlds/event_guide_world.world" />
+  <arg name="model" default="waffle_pi" />
+  <arg name="x_pos" default="0.0" />
+  <arg name="y_pos" default="0.0" />
+  <arg name="z_pos" default="0.01" />
+  <arg name="yaw" default="0.0" />
+
+  <env name="TURTLEBOT3_MODEL" value="$(arg model)" />
+  <env name="GAZEBO_MODEL_PATH" value="$(find event_guide_robot)/models:$(optenv GAZEBO_MODEL_PATH)" />
+  <env name="GAZEBO_RESOURCE_PATH" value="$(find event_guide_robot):$(optenv GAZEBO_RESOURCE_PATH)" />
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(arg world_file)" />
+    <arg name="paused" value="$(arg paused)" />
+    <arg name="use_sim_time" value="$(arg use_sim_time)" />
+    <arg name="gui" value="$(arg gui)" />
+  </include>
+
+  <param
+    name="robot_description"
+    command="$(find xacro)/xacro --inorder $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" />
+
+  <node
+    name="spawn_turtlebot3"
+    pkg="gazebo_ros"
+    type="spawn_model"
+    args="-urdf -model turtlebot3_$(arg model) -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -Y $(arg yaw) -param robot_description" />
+</launch>

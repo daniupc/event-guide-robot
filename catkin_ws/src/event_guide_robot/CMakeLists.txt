@@ -3,12 +3,14 @@ project(event_guide_robot)
 
 find_package(catkin REQUIRED COMPONENTS
   actionlib
+  gazebo_ros
   geometry_msgs
   move_base_msgs
   rospy
   sensor_msgs
   std_msgs
   cv_bridge
+  xacro
 )
 
 catkin_package()
@@ -18,5 +20,15 @@ catkin_install_python(PROGRAMS
   scripts/navigation_manager_node.py
   scripts/local_search_manager_node.py
   scripts/vision_detector_node.py
+  scripts/generate_gazebo_markers.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+install(DIRECTORY
+  config
+  launch
+  maps
+  media
+  worlds
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )

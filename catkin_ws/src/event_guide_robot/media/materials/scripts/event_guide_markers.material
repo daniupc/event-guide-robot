@@ -1,0 +1,143 @@
+material EventGuide/Aruco11
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      ambient 1 1 1 1
+      diffuse 1 1 1 1
+      texture_unit
+      {
+        texture aruco_11.png
+        filtering none
+      }
+    }
+  }
+}
+
+material EventGuide/Aruco12
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      ambient 1 1 1 1
+      diffuse 1 1 1 1
+      texture_unit
+      {
+        texture aruco_12.png
+        filtering none
+      }
+    }
+  }
+}
+
+material EventGuide/Aruco21
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      ambient 1 1 1 1
+      diffuse 1 1 1 1
+      texture_unit
+      {
+        texture aruco_21.png
+        filtering none
+      }
+    }
+  }
+}
+
+material EventGuide/Aruco22
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      ambient 1 1 1 1
+      diffuse 1 1 1 1
+      texture_unit
+      {
+        texture aruco_22.png
+        filtering none
+      }
+    }
+  }
+}
+
+material EventGuide/Aruco31
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      ambient 1 1 1 1
+      diffuse 1 1 1 1
+      texture_unit
+      {
+        texture aruco_31.png
+        filtering none
+      }
+    }
+  }
+}
+
+material EventGuide/Aruco32
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      ambient 1 1 1 1
+      diffuse 1 1 1 1
+      texture_unit
+      {
+        texture aruco_32.png
+        filtering none
+      }
+    }
+  }
+}
+
+material EventGuide/Aruco41
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      ambient 1 1 1 1
+      diffuse 1 1 1 1
+      texture_unit
+      {
+        texture aruco_41.png
+        filtering none
+      }
+    }
+  }
+}
+
+material EventGuide/Aruco42
+{
+  technique
+  {
+    pass
+    {
+      lighting off
+      ambient 1 1 1 1
+      diffuse 1 1 1 1
+      texture_unit
+      {
+        texture aruco_42.png
+        filtering none
+      }
+    }
+  }
+}

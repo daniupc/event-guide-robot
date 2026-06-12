@@ -56,6 +56,26 @@ def test_initial_measured_zones_are_present():
     }
 
 
+def test_pasillo_map_and_measured_goals_are_configured():
+    data = load_map()
+
+    assert data["metadata"]["map_file"] == "../maps/mapa_passadis.yaml"
+
+    expected_goals = {
+        "zona_arriba": (-1.4704312086105347, -4.636334419250488),
+        "zona_izquierda": (-1.972220540046692, -0.48459815979003906),
+        "zona_abajo": (0.3927302062511444, -1.5970544815063477),
+        "zona_derecha": (0.6981806755065918, -4.179182052612305),
+    }
+    for zone_id, (expected_x, expected_y) in expected_goals.items():
+        goal = data["zones"][zone_id]["nav_goal"]
+
+        assert goal["x"] == expected_x
+        assert goal["y"] == expected_y
+        assert goal["yaw"] == 0.0
+        assert data["zones"][zone_id]["search_waypoints"] == [goal]
+
+
 def test_every_zone_has_at_least_two_marker_labels():
     data = load_map()
 

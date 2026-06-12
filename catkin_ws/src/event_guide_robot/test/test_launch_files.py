@@ -49,9 +49,9 @@ def test_navigation_launch_uses_packaged_map_by_default():
     root = ET.parse(launch_file).getroot()
     args = {arg.attrib["name"]: arg.attrib.get("default") for arg in root.findall("arg")}
 
-    assert args["map_file"] == "$(find event_guide_robot)/maps/map.yaml"
-    assert (PACKAGE_ROOT / "maps" / "map.yaml").is_file()
-    assert (PACKAGE_ROOT / "maps" / "map.pgm").is_file()
+    assert args["map_file"] == "$(find event_guide_robot)/maps/mapa_passadis.yaml"
+    assert (PACKAGE_ROOT / "maps" / "mapa_passadis.yaml").is_file()
+    assert (PACKAGE_ROOT / "maps" / "mapa_passadis.pgm").is_file()
 
 
 def test_launch_files_default_to_turtlebot3_rpicamera_topic():

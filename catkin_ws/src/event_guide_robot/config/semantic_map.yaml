@@ -1,12 +1,13 @@
 # Semantic map for the Event Guide Robot demo.
 #
 # Coordinate source:
-# - Positions come from puntos.txt, captured in the ROS "map" frame.
-# - The centroid below is the average of the four measured points.
-# - yaw values were originally calculated toward the centroid, but final
-#   orientation is intentionally relaxed in navigation_with_guide.launch via
-#   move_base yaw_goal_tolerance. In tight spaces, the robot should arrive at
-#   the x/y goal and keep whichever heading the local planner naturally used.
+# - Positions come from RViz Publish Point captures on mapa_passadis, in the
+#   ROS "map" frame.
+# - The centroid below is the average of the four measured corridor points.
+# - yaw is intentionally set to 0.0 for every goal, while final orientation is
+#   relaxed in navigation_with_guide.launch via move_base yaw_goal_tolerance.
+#   In tight spaces, the robot should arrive at the x/y goal and keep whichever
+#   heading the local planner naturally used.
 # - labels use ArUco/AprilTag-style numeric marker IDs as the primary visual
 #   signal. Print one marker per stand and place it next to the human-readable
 #   stand name. Colors can be added physically as a secondary debugging cue, but
@@ -14,12 +15,12 @@
 
 metadata:
   frame_id: map
-  map_file: ../../../../map.yaml
-  position_source: puntos.txt
+  map_file: ../maps/mapa_passadis.yaml
+  position_source: rviz_publish_point_mapa_passadis
   yaw_source: relaxed_by_move_base_yaw_goal_tolerance
   centroid:
-    x: 0.13666607066988945
-    y: 0.1921076737344265
+    x: -0.5879352167248726
+    y: -2.724292278289795
 
 zones:
   zona_arriba:
@@ -29,13 +30,13 @@ zones:
       - "zona arriba"
       - "punto arriba"
     nav_goal:
-      x: -0.529138445854187
-      y: -0.044567957520484924
-      yaw: 0.3415423349961051
+      x: -1.4704312086105347
+      y: -4.636334419250488
+      yaw: 0.0
     search_waypoints:
-      - x: -0.529138445854187
-        y: -0.044567957520484924
-        yaw: 0.3415423349961051
+      - x: -1.4704312086105347
+        y: -4.636334419250488
+        yaw: 0.0
     labels:
       qualcomm_ai_hub:
         display_name: "Qualcomm AI Hub"
@@ -61,13 +62,13 @@ zones:
       - "zona izquierda"
       - "punto izquierda"
     nav_goal:
-      x: 0.2924858331680298
-      y: -0.3563343286514282
-      yaw: 1.8476153649092506
+      x: -1.972220540046692
+      y: -0.48459815979003906
+      yaw: 0.0
     search_waypoints:
-      - x: 0.2924858331680298
-        y: -0.3563343286514282
-        yaw: 1.8476153649092506
+      - x: -1.972220540046692
+        y: -0.48459815979003906
+        yaw: 0.0
     labels:
       telefonica_open_gateway:
         display_name: "Telefonica Open Gateway"
@@ -93,13 +94,13 @@ zones:
       - "zona abajo"
       - "punto abajo"
     nav_goal:
-      x: 0.853394627571106
-      y: 0.3277086019515991
-      yaw: -2.9546084890688524
+      x: 0.3927302062511444
+      y: -1.5970544815063477
+      yaw: 0.0
     search_waypoints:
-      - x: 0.853394627571106
-        y: 0.3277086019515991
-        yaw: -2.9546084890688524
+      - x: 0.3927302062511444
+        y: -1.5970544815063477
+        yaw: 0.0
     labels:
       ericsson_5g_arena:
         display_name: "Ericsson 5G Arena"
@@ -125,13 +126,13 @@ zones:
       - "zona derecha"
       - "punto derecha"
     nav_goal:
-      x: -0.07007773220539093
-      y: 0.84162437915802
-      yaw: -1.2626325479600107
+      x: 0.6981806755065918
+      y: -4.179182052612305
+      yaw: 0.0
     search_waypoints:
-      - x: -0.07007773220539093
-        y: 0.84162437915802
-        yaw: -1.2626325479600107
+      - x: 0.6981806755065918
+        y: -4.179182052612305
+        yaw: 0.0
     labels:
       meta_xr_showcase:
         display_name: "Meta XR Showcase"

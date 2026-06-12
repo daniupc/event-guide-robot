@@ -20,3 +20,10 @@ catkin_install_python(PROGRAMS
   scripts/vision_detector_node.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
+
+install(DIRECTORY
+  config
+  launch
+  maps
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+)

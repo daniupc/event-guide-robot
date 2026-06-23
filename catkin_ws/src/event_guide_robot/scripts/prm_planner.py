@@ -25,6 +25,7 @@ class GridMap:
         self.origin_x = float(origin_x)
         self.origin_y = float(origin_y)
         self.occupied = set(occupied)
+        self._clearance_cells = None
 
     def world_to_cell(self, x, y):
         cell_x = int(math.floor((float(x) - self.origin_x) / self.resolution))
@@ -68,6 +69,75 @@ class GridMap:
             if not self.is_free_world(x, y):
                 return False
         return True
+
+    def _compute_clearance_cells(self):
+        if self._clearance_cells is not None:
+            return
+
+        clearance = {}
+        frontier = []
+        for cell in self.occupied:
+            if self.in_bounds(*cell):
+                clearance[cell] = 0.0
+                heapq.heappush(frontier, (0.0, cell))
+
+        if not frontier:
+            self._clearance_cells = {}
+            return
+
+        neighbors = []
+        for delta_y in (-1, 0, 1):
+            for delta_x in (-1, 0, 1):
+                if delta_x == 0 and delta_y == 0:
+                    continue
+                neighbors.append((delta_x, delta_y, math.hypot(delta_x, delta_y)))
+
+        while frontier:
+            distance_cells, (cell_x, cell_y) = heapq.heappop(frontier)
+            if distance_cells > clearance[(cell_x, cell_y)]:
+                continue
+            for delta_x, delta_y, step_cost in neighbors:
+                next_x = cell_x + delta_x
+                next_y = cell_y + delta_y
+                if not self.in_bounds(next_x, next_y):
+                    continue
+                next_distance = distance_cells + step_cost
+                next_cell = (next_x, next_y)
+                if next_cell not in clearance or next_distance < clearance[next_cell]:
+                    clearance[next_cell] = next_distance
+                    heapq.heappush(frontier, (next_distance, next_cell))
+
+        self._clearance_cells = clearance
+
+    def clearance_cell(self, cell_x, cell_y):
+        """Return approximate distance in meters from a cell to the nearest obstacle."""
+        if not self.in_bounds(cell_x, cell_y):
+            return 0.0
+        if (cell_x, cell_y) in self.occupied:
+            return 0.0
+        self._compute_clearance_cells()
+        if not self._clearance_cells:
+            return float("inf")
+        return self._clearance_cells.get((cell_x, cell_y), float("inf")) * self.resolution
+
+    def clearance_world(self, x, y):
+        """Return clearance in meters from a world point to the nearest obstacle."""
+        return self.clearance_cell(*self.world_to_cell(x, y))
+
+    def line_clearance(self, start_x, start_y, goal_x, goal_y):
+        """Return the minimum clearance sampled along a world-frame segment."""
+        if not self.is_free_world(start_x, start_y) or not self.is_free_world(goal_x, goal_y):
+            return 0.0
+
+        distance = math.hypot(float(goal_x) - float(start_x), float(goal_y) - float(start_y))
+        steps = max(1, int(math.ceil(distance / (self.resolution * 0.5))))
+        minimum_clearance = float("inf")
+        for index in range(steps + 1):
+            ratio = float(index) / float(steps)
+            x = float(start_x) + (float(goal_x) - float(start_x)) * ratio
+            y = float(start_y) + (float(goal_y) - float(start_y)) * ratio
+            minimum_clearance = min(minimum_clearance, self.clearance_world(x, y))
+        return minimum_clearance
 
 
 def _read_token(stream):
@@ -189,9 +259,22 @@ def sample_free_poses(grid, sample_count, random_seed):
     return rng.sample(free_poses, sample_count)
 
 
-def build_roadmap(grid, poses, connection_radius):
+def _edge_cost(distance, clearance, clearance_weight):
+    clearance_weight = float(clearance_weight)
+    if clearance_weight <= 0.0:
+        return distance
+    if not math.isfinite(clearance):
+        return distance
+    if clearance <= 0.0:
+        return float("inf")
+    return distance * (1.0 + clearance_weight / clearance)
+
+
+def build_roadmap(grid, poses, connection_radius, min_clearance_m=0.0, clearance_weight=0.0):
     """Build an undirected roadmap between visible nearby poses."""
     connection_radius = float(connection_radius)
+    min_clearance_m = max(0.0, float(min_clearance_m))
+    clearance_weight = max(0.0, float(clearance_weight))
     graph = {index: [] for index in range(len(poses))}
     for first_index, first in enumerate(poses):
         for second_index in range(first_index + 1, len(poses)):
@@ -201,8 +284,16 @@ def build_roadmap(grid, poses, connection_radius):
                 continue
             if not grid.line_is_free(first["x"], first["y"], second["x"], second["y"]):
                 continue
-            graph[first_index].append((second_index, distance))
-            graph[second_index].append((first_index, distance))
+            edge_clearance = float("inf")
+            if min_clearance_m > 0.0 or clearance_weight > 0.0:
+                edge_clearance = grid.line_clearance(first["x"], first["y"], second["x"], second["y"])
+                if edge_clearance < min_clearance_m:
+                    continue
+            cost = _edge_cost(distance, edge_clearance, clearance_weight)
+            if not math.isfinite(cost):
+                continue
+            graph[first_index].append((second_index, cost))
+            graph[second_index].append((first_index, cost))
     return graph
 
 
@@ -244,6 +335,8 @@ def plan_prm_path(
     sample_count=250,
     connection_radius=0.8,
     random_seed=13,
+    min_clearance_m=0.0,
+    clearance_weight=0.0,
 ):
     """Plan a map-frame path from ``start`` to ``goal`` using PRM."""
     start_pose = _pose_with_yaw(start, start.get("yaw", 0.0))
@@ -256,7 +349,13 @@ def plan_prm_path(
 
     samples = sample_free_poses(grid, sample_count, random_seed)
     poses = [start_pose] + samples + [goal_pose]
-    graph = build_roadmap(grid, poses, connection_radius)
+    graph = build_roadmap(
+        grid,
+        poses,
+        connection_radius,
+        min_clearance_m=min_clearance_m,
+        clearance_weight=clearance_weight,
+    )
     indexes = shortest_path(graph, 0, len(poses) - 1)
     path = [poses[index] for index in indexes]
     path[0] = start_pose

@@ -97,6 +97,40 @@ class FakeRospy:
         self.logs.append(("err", args))
 
 
+def make_pose_msg(x=0.0, y=0.0, yaw=0.0):
+    half_yaw = yaw / 2.0
+    return type("FakePoseMsg", (), {
+        "pose": type("Cov", (), {
+            "pose": type("Pose", (), {
+                "position": type("Point", (), {"x": x, "y": y})(),
+                "orientation": type("Quat", (), {
+                    "x": 0.0,
+                    "y": 0.0,
+                    "z": math.sin(half_yaw),
+                    "w": math.cos(half_yaw),
+                })(),
+            })()
+        })()
+    })()
+
+
+def make_scan(ranges, range_min=0.05, range_max=4.0):
+    return type("FakeScan", (), {
+        "ranges": ranges,
+        "range_min": range_min,
+        "range_max": range_max,
+    })()
+
+
+def start_plan(node):
+    plan = {
+        "status": "FOUND",
+        "display_name": "Zona Demo",
+        "navigation_path": [{"x": 2.0, "y": 0.0, "yaw": 0.0}],
+    }
+    node.on_plan(FakeStringMsg(json.dumps(plan)))
+
+
 def test_normalize_angle_wraps_to_minus_pi_pi():
     follower = load_follower_module()
 
@@ -144,6 +178,32 @@ def test_command_to_waypoint_moves_forward_when_aligned():
     assert command.angular.z == 0.0
 
 
+def test_scan_obstacle_detection_ignores_invalid_and_out_of_range_readings():
+    follower = load_follower_module()
+
+    scan = make_scan(
+        ranges=[float("nan"), float("inf"), "bad", 0.05, 4.5, 0.12],
+        range_min=0.10,
+        range_max=4.0,
+    )
+
+    assert follower.scan_has_close_obstacle(scan, safety_distance_m=0.18) is True
+
+    scan_without_valid_obstacle = make_scan(
+        ranges=[0.05, 4.5, float("nan")],
+        range_min=0.10,
+        range_max=4.0,
+    )
+
+    assert (
+        follower.scan_has_close_obstacle(
+            scan_without_valid_obstacle,
+            safety_distance_m=0.18,
+        )
+        is False
+    )
+
+
 def test_follower_advances_waypoints_and_reports_navigation_success():
     follower = load_follower_module()
     rospy = FakeRospy()
@@ -158,11 +218,12 @@ def test_follower_advances_waypoints_and_reports_navigation_success():
     }
 
     node.on_plan(FakeStringMsg(json.dumps(plan)))
-    node.current_pose = {"x": 0.0, "y": 0.0, "yaw": 0.0}
+    node.on_pose(make_pose_msg(x=0.0, y=0.0, yaw=0.0))
+    node.on_scan(make_scan([1.0, 1.2, 1.4]))
     node.on_timer(None)
     assert node.current_waypoint_index == 1
 
-    node.current_pose = {"x": 1.0, "y": 0.0, "yaw": 0.0}
+    node.on_pose(make_pose_msg(x=1.0, y=0.0, yaw=0.0))
     node.on_timer(None)
 
     assert node.state == follower.STATE_SUCCEEDED
@@ -170,26 +231,94 @@ def test_follower_advances_waypoints_and_reports_navigation_success():
     assert rospy.publishers["/cmd_vel"].messages[-1].linear.x == 0.0
 
 
-def test_follower_stops_when_scan_reports_close_obstacle():
+def test_follower_waits_safely_until_initial_pose_and_scan_are_available():
     follower = load_follower_module()
     rospy = FakeRospy()
     node = follower.PrmTrajectoryFollowerNode(rospy, FakeStringMsg, follower._FallbackTwist)
-    plan = {
-        "status": "FOUND",
-        "navigation_path": [{"x": 2.0, "y": 0.0, "yaw": 0.0}],
-    }
-    scan = type("FakeScan", (), {"ranges": [float("inf"), 0.12, 1.4]})()
 
-    node.on_plan(FakeStringMsg(json.dumps(plan)))
-    node.on_pose(type("FakePoseMsg", (), {
-        "pose": type("Cov", (), {
-            "pose": type("Pose", (), {
-                "position": type("Point", (), {"x": 0.0, "y": 0.0})(),
-                "orientation": type("Quat", (), {"x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0})(),
-            })()
-        })()
-    })())
-    node.on_scan(scan)
+    start_plan(node)
+    node.on_timer(None)
+
+    assert node.state == follower.STATE_FOLLOWING
+    assert rospy.publishers["/cmd_vel"].messages[-1].linear.x == 0.0
+    assert rospy.publishers["/cmd_vel"].messages[-1].angular.z == 0.0
+
+    node.on_pose(make_pose_msg())
+    node.on_timer(None)
+
+    assert node.state == follower.STATE_FOLLOWING
+    assert rospy.publishers["/cmd_vel"].messages[-1].linear.x == 0.0
+    assert rospy.publishers["/cmd_vel"].messages[-1].angular.z == 0.0
+
+    node.on_scan(make_scan([1.0, 1.2, 1.4]))
+    node.on_timer(None)
+
+    assert rospy.publishers["/cmd_vel"].messages[-1].linear.x > 0.0
+
+
+def test_initial_sensor_wait_does_not_consume_path_timeout():
+    follower = load_follower_module()
+    rospy = FakeRospy()
+    rospy.params["~path_timeout_sec"] = 1.0
+    rospy.params["~pose_timeout_sec"] = 5.0
+    rospy.params["~scan_timeout_sec"] = 5.0
+    node = follower.PrmTrajectoryFollowerNode(rospy, FakeStringMsg, follower._FallbackTwist)
+
+    FakeTime.current = 100.0
+    start_plan(node)
+    FakeTime.current = 101.5
+    node.on_pose(make_pose_msg())
+    node.on_scan(make_scan([1.0, 1.2, 1.4]))
+    node.on_timer(None)
+
+    assert node.state == follower.STATE_FOLLOWING
+    assert node.path_start_time == pytest.approx(101.5)
+    assert rospy.publishers["/cmd_vel"].messages[-1].linear.x > 0.0
+
+
+def test_follower_stops_during_brief_pose_loss_then_fails_after_timeout():
+    follower = load_follower_module()
+    rospy = FakeRospy()
+    rospy.params["~pose_stale_after_sec"] = 0.2
+    rospy.params["~pose_timeout_sec"] = 0.5
+    node = follower.PrmTrajectoryFollowerNode(rospy, FakeStringMsg, follower._FallbackTwist)
+
+    FakeTime.current = 100.0
+    start_plan(node)
+    node.on_pose(make_pose_msg())
+    node.on_scan(make_scan([1.0, 1.2, 1.4]))
+    node.on_timer(None)
+    assert rospy.publishers["/cmd_vel"].messages[-1].linear.x > 0.0
+
+    FakeTime.current = 100.3
+    node.on_timer(None)
+    assert node.state == follower.STATE_FOLLOWING
+    assert rospy.publishers["/cmd_vel"].messages[-1].linear.x == 0.0
+
+    FakeTime.current = 100.6
+    node.on_timer(None)
+
+    assert node.state == follower.STATE_FAILED
+    assert rospy.publishers["/guide/result"].messages[-1].data == "Timeout sin pose AMCL reciente"
+    assert rospy.publishers["/cmd_vel"].messages[-1].linear.x == 0.0
+
+
+def test_follower_requires_consecutive_close_scans_before_blocking():
+    follower = load_follower_module()
+    rospy = FakeRospy()
+    rospy.params["~obstacle_confirmations_required"] = 2
+    node = follower.PrmTrajectoryFollowerNode(rospy, FakeStringMsg, follower._FallbackTwist)
+
+    FakeTime.current = 100.0
+    start_plan(node)
+    node.on_pose(make_pose_msg())
+    node.on_scan(make_scan([float("inf"), 0.12, 1.4]))
+    node.on_timer(None)
+
+    assert node.state == follower.STATE_FOLLOWING
+    assert rospy.publishers["/cmd_vel"].messages[-1].linear.x == 0.0
+
+    node.on_scan(make_scan([0.12, 1.4, 1.5]))
     node.on_timer(None)
 
     assert node.state == follower.STATE_BLOCKED

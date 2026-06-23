@@ -71,12 +71,18 @@ def distance_to_waypoint(pose, waypoint):
 
 def scan_has_close_obstacle(scan, safety_distance_m):
     """Return True if a LaserScan-like message has an obstacle too close."""
+    range_min = float(getattr(scan, "range_min", 0.0) or 0.0)
+    range_max = float(getattr(scan, "range_max", float("inf")) or float("inf"))
     for reading in getattr(scan, "ranges", []):
         try:
             distance = float(reading)
         except (TypeError, ValueError):
             continue
-        if math.isfinite(distance) and distance < float(safety_distance_m):
+        if not math.isfinite(distance):
+            continue
+        if distance < range_min or distance > range_max:
+            continue
+        if distance < float(safety_distance_m):
             return True
     return False
 
@@ -121,7 +127,15 @@ class PrmTrajectoryFollowerNode:
         self.scan_topic = self.rospy.get_param("~scan_topic", "/scan")
         self.control_rate_hz = self.rospy.get_param("~control_rate_hz", 10.0)
         self.path_timeout_sec = self.rospy.get_param("~path_timeout_sec", 120.0)
+        self.pose_stale_after_sec = self.rospy.get_param("~pose_stale_after_sec", 0.25)
+        self.scan_stale_after_sec = self.rospy.get_param("~scan_stale_after_sec", 0.50)
+        self.pose_timeout_sec = self.rospy.get_param("~pose_timeout_sec", 2.0)
+        self.scan_timeout_sec = self.rospy.get_param("~scan_timeout_sec", 2.0)
         self.safety_distance_m = self.rospy.get_param("~safety_distance_m", 0.18)
+        self.obstacle_confirmations_required = max(
+            1,
+            int(self.rospy.get_param("~obstacle_confirmations_required", 3)),
+        )
         self.config = {
             "waypoint_tolerance_m": self.rospy.get_param("~waypoint_tolerance_m", 0.15),
             "linear_speed_m_s": self.rospy.get_param("~linear_speed_m_s", 0.12),
@@ -139,8 +153,12 @@ class PrmTrajectoryFollowerNode:
         self.navigation_path = []
         self.current_waypoint_index = 0
         self.current_pose = None
+        self.last_pose_time = None
+        self.last_scan_time = None
+        self.plan_received_time = None
         self.path_start_time = None
         self.obstacle_blocked = False
+        self.obstacle_observations = 0
 
         self.cmd_pub = self.rospy.Publisher("/cmd_vel", twist_msg, queue_size=10)
         self.state_pub = self.rospy.Publisher("/guide/state", string_msg, queue_size=10)
@@ -171,6 +189,7 @@ class PrmTrajectoryFollowerNode:
         self.active_plan = None
         self.navigation_path = []
         self.current_waypoint_index = 0
+        self.plan_received_time = None
         self.path_start_time = None
         self.publish_text(self.state_pub, state)
         self.publish_text(self.result_pub, result)
@@ -210,17 +229,50 @@ class PrmTrajectoryFollowerNode:
         self.stop_robot()
         self.active_plan = plan
         self.current_waypoint_index = 0
-        self.path_start_time = self._now()
+        self.plan_received_time = self._now()
+        self.path_start_time = None
         self.obstacle_blocked = False
+        self.obstacle_observations = 0
         self.state = STATE_FOLLOWING
         self.publish_text(self.state_pub, STATE_FOLLOWING)
         self.rospy.loginfo("Following PRM path with %d waypoint(s)", len(self.navigation_path))
 
     def on_pose(self, message):
         self.current_pose = pose_from_amcl(message)
+        self.last_pose_time = self._now()
 
     def on_scan(self, message):
-        self.obstacle_blocked = scan_has_close_obstacle(message, self.safety_distance_m)
+        self.last_scan_time = self._now()
+        if scan_has_close_obstacle(message, self.safety_distance_m):
+            self.obstacle_observations += 1
+        else:
+            self.obstacle_observations = 0
+        self.obstacle_blocked = (
+            self.obstacle_observations >= self.obstacle_confirmations_required
+        )
+
+    def _sensor_age(self, timestamp):
+        if timestamp is None:
+            if self.plan_received_time is None:
+                return 0.0
+            return self._now() - self.plan_received_time
+        return self._now() - timestamp
+
+    def _wait_for_fresh_sensor(self, timestamp, stale_after_sec, timeout_sec, result):
+        age = self._sensor_age(timestamp)
+        if timestamp is None:
+            self.stop_robot()
+            if age >= float(timeout_sec):
+                self.rospy.logwarn(result)
+                self._finish(STATE_FAILED, result)
+            return True
+        if age <= float(stale_after_sec):
+            return False
+        self.stop_robot()
+        if age >= float(timeout_sec):
+            self.rospy.logwarn(result)
+            self._finish(STATE_FAILED, result)
+        return True
 
     def _advance_reached_waypoints(self):
         while self.current_waypoint_index < len(self.navigation_path):
@@ -236,12 +288,42 @@ class PrmTrajectoryFollowerNode:
             return
 
         if self.current_pose is None:
+            if self._wait_for_fresh_sensor(
+                self.last_pose_time,
+                self.pose_stale_after_sec,
+                self.pose_timeout_sec,
+                "Timeout sin pose AMCL reciente",
+            ):
+                return
+            self.stop_robot()
+            return
+
+        if self._wait_for_fresh_sensor(
+            self.last_pose_time,
+            self.pose_stale_after_sec,
+            self.pose_timeout_sec,
+            "Timeout sin pose AMCL reciente",
+        ):
+            return
+
+        if self._wait_for_fresh_sensor(
+            self.last_scan_time,
+            self.scan_stale_after_sec,
+            self.scan_timeout_sec,
+            "Timeout sin scan reciente",
+        ):
             return
 
         if self.obstacle_blocked:
             self.rospy.logwarn("PRM follower blocked by a close obstacle")
             self._finish(STATE_BLOCKED, "Navegacion PRM bloqueada por obstaculo")
             return
+        if self.obstacle_observations > 0:
+            self.stop_robot()
+            return
+
+        if self.path_start_time is None:
+            self.path_start_time = self._now()
 
         if self.path_start_time is not None:
             if (self._now() - self.path_start_time) >= float(self.path_timeout_sec):

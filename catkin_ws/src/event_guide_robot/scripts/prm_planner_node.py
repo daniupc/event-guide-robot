@@ -30,6 +30,8 @@ def enrich_plan_with_prm_path(plan, start_pose, grid, config):
         sample_count=config["sample_count"],
         connection_radius=config["connection_radius_m"],
         random_seed=config["random_seed"],
+        min_clearance_m=config.get("min_clearance_m", 0.0),
+        clearance_weight=config.get("clearance_weight", 0.0),
     )
     enriched = dict(plan)
     enriched["planner"] = "prm"
@@ -52,6 +54,8 @@ class PrmPlannerNode:
             "sample_count": int(self.rospy.get_param("~sample_count", 350)),
             "connection_radius_m": float(self.rospy.get_param("~connection_radius_m", 0.75)),
             "random_seed": int(self.rospy.get_param("~random_seed", 13)),
+            "min_clearance_m": float(self.rospy.get_param("~min_clearance_m", 0.0)),
+            "clearance_weight": float(self.rospy.get_param("~clearance_weight", 0.0)),
         }
         self.allow_direct_fallback = bool(
             self.rospy.get_param("~allow_direct_fallback", True)

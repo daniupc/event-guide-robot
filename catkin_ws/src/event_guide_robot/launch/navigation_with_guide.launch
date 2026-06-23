@@ -22,6 +22,7 @@
   </include>
 
   <include file="$(find event_guide_robot)/launch/guide_system.launch">
+    <arg name="map_file" value="$(arg map_file)" />
     <arg name="semantic_map" value="$(arg semantic_map)" />
     <arg name="image_topic" value="$(arg image_topic)" />
   </include>

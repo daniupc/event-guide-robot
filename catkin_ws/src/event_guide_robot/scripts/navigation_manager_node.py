@@ -32,6 +32,21 @@ def parse_plan_json(text):
     return plan
 
 
+def navigation_poses_from_plan(plan):
+    """Return ordered navigation poses from a direct or PRM-enriched plan."""
+    path = plan.get("navigation_path")
+    if path:
+        if not isinstance(path, list):
+            raise ValueError("navigation_path must be a list")
+        for index, pose in enumerate(path):
+            if not isinstance(pose, dict):
+                raise ValueError("navigation_path[{}] must be a dictionary".format(index))
+            for key in ("x", "y"):
+                _require_pose_number(pose, key)
+        return path
+    return [plan["nav_goal"]]
+
+
 def _pose_from_plan_or_pose(plan_or_pose):
     if not isinstance(plan_or_pose, dict):
         raise ValueError("Plan or pose must be a dictionary")
@@ -94,6 +109,7 @@ class NavigationManagerNode:
             self.rospy.get_param("~navigation_timeout_sec", 90.0)
         )
 
+        plan_topic = self.rospy.get_param("~plan_topic", "/guide/plan")
         self.state_pub = self.rospy.Publisher("/guide/state", string_msg, queue_size=10)
         self.result_pub = self.rospy.Publisher("/guide/result", string_msg, queue_size=10)
         self.client = actionlib_module.SimpleActionClient("/move_base", move_base_action)
@@ -102,7 +118,7 @@ class NavigationManagerNode:
         self.client.wait_for_server()
         self.rospy.loginfo("Connected to /move_base action server")
 
-        self.plan_sub = self.rospy.Subscriber("/guide/plan", string_msg, self.on_plan)
+        self.plan_sub = self.rospy.Subscriber(plan_topic, string_msg, self.on_plan)
 
     def publish_text(self, publisher, text):
         publisher.publish(self.string_msg(data=text))
@@ -112,11 +128,7 @@ class NavigationManagerNode:
             plan = parse_plan_json(message.data)
             if plan.get("status") != "FOUND":
                 raise ValueError("Guide plan status is not FOUND")
-            goal = build_move_base_goal(
-                plan,
-                move_base_msg_classes=self,
-                stamp=self.rospy.Time.now(),
-            )
+            navigation_poses = navigation_poses_from_plan(plan)
         except (TypeError, ValueError, json.JSONDecodeError) as error:
             self.rospy.logerr("Invalid guide plan: %s", error)
             self.publish_text(self.state_pub, "NAVIGATION_FAILED")
@@ -125,41 +137,73 @@ class NavigationManagerNode:
 
         display_name = plan.get("display_name") or plan.get("zone_name") or plan.get("zone_id", "destino")
         self.publish_text(self.state_pub, "NAVIGATE_TO_ZONE")
-        self.rospy.loginfo("Sending move_base goal for %s", display_name)
-        self.client.send_goal(goal)
+        total_waypoints = len(navigation_poses)
 
-        finished = self.client.wait_for_result(
-            self.rospy.Duration(self.navigation_timeout_sec)
-        )
-        if not finished:
-            self.client.cancel_goal()
-            self.rospy.logwarn(
-                "Navigation to %s timed out after %.1f seconds",
+        for index, pose in enumerate(navigation_poses, start=1):
+            try:
+                goal = build_move_base_goal(
+                    pose,
+                    move_base_msg_classes=self,
+                    stamp=self.rospy.Time.now(),
+                )
+            except (TypeError, ValueError) as error:
+                self.rospy.logerr("Invalid navigation waypoint: %s", error)
+                self.publish_text(self.state_pub, "NAVIGATION_FAILED")
+                self.publish_text(
+                    self.result_pub,
+                    "Waypoint de navegacion invalido: {}".format(error),
+                )
+                return
+
+            self.rospy.loginfo(
+                "Sending move_base goal %s/%s for %s",
+                index,
+                total_waypoints,
                 display_name,
-                self.navigation_timeout_sec,
             )
-            self.publish_text(self.state_pub, "NAVIGATION_FAILED")
-            self.publish_text(
-                self.result_pub,
-                "Navegacion fallida: timeout hacia {}".format(display_name),
-            )
-            return
+            self.client.send_goal(goal)
 
-        state = self.client.get_state()
-        if state == SUCCEEDED_STATUS:
-            self.rospy.loginfo("Navigation to %s succeeded", display_name)
-            self.publish_text(self.state_pub, "NAVIGATION_SUCCEEDED")
-            self.publish_text(
-                self.result_pub,
-                "Navegacion completada: {}".format(display_name),
+            finished = self.client.wait_for_result(
+                self.rospy.Duration(self.navigation_timeout_sec)
             )
-        else:
-            self.rospy.logwarn("Navigation to %s failed with action state %s", display_name, state)
-            self.publish_text(self.state_pub, "NAVIGATION_FAILED")
-            self.publish_text(
-                self.result_pub,
-                "Navegacion fallida hacia {}".format(display_name),
-            )
+            if not finished:
+                self.client.cancel_goal()
+                self.rospy.logwarn(
+                    "Navigation to %s waypoint %s/%s timed out after %.1f seconds",
+                    display_name,
+                    index,
+                    total_waypoints,
+                    self.navigation_timeout_sec,
+                )
+                self.publish_text(self.state_pub, "NAVIGATION_FAILED")
+                self.publish_text(
+                    self.result_pub,
+                    "Navegacion fallida: timeout hacia {}".format(display_name),
+                )
+                return
+
+            state = self.client.get_state()
+            if state != SUCCEEDED_STATUS:
+                self.rospy.logwarn(
+                    "Navigation to %s waypoint %s/%s failed with action state %s",
+                    display_name,
+                    index,
+                    total_waypoints,
+                    state,
+                )
+                self.publish_text(self.state_pub, "NAVIGATION_FAILED")
+                self.publish_text(
+                    self.result_pub,
+                    "Navegacion fallida hacia {}".format(display_name),
+                )
+                return
+
+        self.rospy.loginfo("Navigation to %s succeeded", display_name)
+        self.publish_text(self.state_pub, "NAVIGATION_SUCCEEDED")
+        self.publish_text(
+            self.result_pub,
+            "Navegacion completada: {}".format(display_name),
+        )
 
     @property
     def MoveBaseGoal(self):

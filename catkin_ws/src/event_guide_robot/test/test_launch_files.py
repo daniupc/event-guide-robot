@@ -15,10 +15,44 @@ def test_guide_system_launch_is_valid_xml_and_starts_core_nodes():
     assert root.tag == "launch"
     assert {
         "semantic_planner_node.py",
-        "navigation_manager_node.py",
+        "prm_planner_node.py",
+        "prm_trajectory_follower_node.py",
         "local_search_manager_node.py",
         "vision_detector_node.py",
     }.issubset(node_types)
+
+
+def test_guide_system_launch_routes_navigation_through_prm_by_default():
+    launch_file = PACKAGE_ROOT / "launch" / "guide_system.launch"
+
+    root = ET.parse(launch_file).getroot()
+    args = {arg.attrib["name"]: arg.attrib.get("default") for arg in root.findall("arg")}
+    nodes = {node.attrib["name"]: node for node in root.findall("node")}
+
+    follower_params = {
+        param.attrib["name"]: param.attrib.get("value")
+        for param in nodes["prm_trajectory_follower_node"].findall("param")
+    }
+    prm_params = {
+        param.attrib["name"]: param.attrib.get("value")
+        for param in nodes["prm_planner_node"].findall("param")
+    }
+
+    assert args["navigation_plan_topic"] == "/guide/navigation_plan"
+    assert follower_params["plan_topic"] == "$(arg navigation_plan_topic)"
+    assert prm_params["input_plan_topic"] == "$(arg semantic_plan_topic)"
+    assert prm_params["output_plan_topic"] == "$(arg navigation_plan_topic)"
+    assert prm_params["map_file"] == "$(arg map_file)"
+
+
+def test_guide_system_launch_uses_prm_follower_instead_of_move_base_manager_by_default():
+    launch_file = PACKAGE_ROOT / "launch" / "guide_system.launch"
+
+    root = ET.parse(launch_file).getroot()
+    node_types = {node.attrib["type"] for node in root.findall("node")}
+
+    assert "prm_trajectory_follower_node.py" in node_types
+    assert "navigation_manager_node.py" not in node_types
 
 
 def test_navigation_with_guide_launch_includes_navigation_and_guide():

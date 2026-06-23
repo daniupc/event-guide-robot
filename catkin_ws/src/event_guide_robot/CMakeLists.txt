@@ -15,6 +15,9 @@ catkin_package()
 
 catkin_install_python(PROGRAMS
   scripts/semantic_planner_node.py
+  scripts/prm_planner.py
+  scripts/prm_planner_node.py
+  scripts/prm_trajectory_follower_node.py
   scripts/navigation_manager_node.py
   scripts/local_search_manager_node.py
   scripts/vision_detector_node.py
